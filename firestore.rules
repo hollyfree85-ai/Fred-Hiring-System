@@ -1,0 +1,172 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'fred.owner@fred-hiring-system.app';
+    }
+
+    function isActiveManager() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role == 'manager'
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'active'
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.authEmail == request.auth.token.email;
+    }
+
+    function canReviewCandidates() {
+      return isOwner() || isActiveManager();
+    }
+
+    function isAllowedCreator() {
+      return request.auth != null
+        && (
+          request.auth.token.firebase.sign_in_provider == 'anonymous'
+          || canReviewCandidates()
+        );
+    }
+
+    function validManagerAccount(staffId) {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+          'uid',
+          'username',
+          'usernameLower',
+          'authEmail',
+          'displayName',
+          'role',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'createdBy'
+        ])
+        && data.uid == staffId
+        && data.username is string && data.username.size() >= 3 && data.username.size() <= 32
+        && data.usernameLower == data.username
+        && data.authEmail is string && data.authEmail.size() <= 120
+        && data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 80
+        && data.role == 'manager'
+        && data.status in ['active', 'disabled', 'removed']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128;
+    }
+
+    function isAllowedRole(role) {
+      return role in [
+        'host_cashier',
+        'server',
+        'bartender',
+        'busser_runner',
+        'assistant_manager',
+        'cook',
+        'sushi_cook',
+        'cook_prep',
+        'sushi_prep',
+        'sushi_chef'
+      ];
+    }
+
+    function validBiodata(biodata, role) {
+      return biodata is map
+        && biodata.keys().hasOnly([
+          'email',
+          'cityState',
+          'availableStartDate',
+          'restaurantExperience',
+          'mostRecentEmployer',
+          'mostRecentRole',
+          'reasonLeaving',
+          'englishComfort',
+          'availableDays',
+          'availableShifts',
+          'hoursDesired',
+          'authorizedToWork',
+          'meetsAgeRequirement',
+          'alcoholTraining',
+          'whyJoin',
+          'serviceExample'
+        ])
+        && biodata.email is string && biodata.email.size() <= 160
+        && biodata.cityState is string && biodata.cityState.size() >= 2 && biodata.cityState.size() <= 120
+        && biodata.availableStartDate is string && biodata.availableStartDate.size() == 10
+        && biodata.restaurantExperience in ['none', 'under_1', '1_2', '3_5', 'over_5']
+        && biodata.mostRecentEmployer is string && biodata.mostRecentEmployer.size() <= 120
+        && biodata.mostRecentRole is string && biodata.mostRecentRole.size() <= 120
+        && biodata.reasonLeaving is string && biodata.reasonLeaving.size() <= 600
+        && biodata.englishComfort in ['basic', 'conversational', 'professional', 'fluent']
+        && biodata.availableDays is list && biodata.availableDays.size() >= 1 && biodata.availableDays.size() <= 7
+        && biodata.availableShifts is list && biodata.availableShifts.size() >= 1 && biodata.availableShifts.size() <= 3
+        && biodata.hoursDesired in ['under_20', '20_30', '30_40', 'over_40']
+        && biodata.authorizedToWork is bool
+        && biodata.meetsAgeRequirement is bool
+        && biodata.alcoholTraining in ['not_applicable', 'yes', 'no', 'in_progress']
+        && (
+          (role in ['server', 'bartender', 'assistant_manager'] && biodata.alcoholTraining != 'not_applicable')
+          || (!(role in ['server', 'bartender', 'assistant_manager']) && biodata.alcoholTraining == 'not_applicable')
+        )
+        && biodata.whyJoin is string && biodata.whyJoin.size() <= 800
+        && biodata.serviceExample is string && biodata.serviceExample.size() <= 1000;
+    }
+
+    function validSubmission(id) {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+          'submissionKey',
+          'creatorUid',
+          'candidateName',
+          'phone',
+          'role',
+          'biodata',
+          'answers',
+          'durationSeconds',
+          'testVersion',
+          'createdAtClient',
+          'submittedAt'
+        ])
+        && data.submissionKey == id
+        && data.creatorUid == request.auth.uid
+        && data.candidateName is string && data.candidateName.size() >= 2 && data.candidateName.size() <= 100
+        && data.phone is string && data.phone.size() >= 7 && data.phone.size() <= 40
+        && isAllowedRole(data.role)
+        && validBiodata(data.biodata, data.role)
+        && data.answers is map && data.answers.size() == 75
+        && data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 14400
+        && data.testVersion == '2026.09.3'
+        && data.createdAtClient is string && data.createdAtClient.size() <= 40
+        && data.submittedAt == request.time;
+    }
+
+    match /submissions/{submissionId} {
+      allow create: if isAllowedCreator() && validSubmission(submissionId);
+      allow read: if canReviewCandidates();
+      allow update, delete: if false;
+    }
+
+    match /staff/{staffId} {
+      allow get: if isOwner() || (request.auth != null && request.auth.uid == staffId);
+      allow list: if isOwner();
+      allow create: if isOwner()
+        && validManagerAccount(staffId)
+        && request.resource.data.status == 'active'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isOwner()
+        && validManagerAccount(staffId)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.username == resource.data.username
+        && request.resource.data.usernameLower == resource.data.usernameLower
+        && request.resource.data.authEmail == resource.data.authEmail
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

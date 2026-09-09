@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "types": ["node"]
+  },
+  "include": [
+    "app/assessment-app.tsx",
+    "app/globals.css",
+    "components/**/*.tsx",
+    "github-src/**/*.ts",
+    "github-src/**/*.tsx",
+    "lib/candidate-report.ts",
+    "lib/client-types.ts",
+    "lib/expanded-role-questions.ts",
+    "lib/question-bank.ts",
+    "lib/scoring.ts",
+    "vite.github.config.ts"
+  ],
+  "exclude": ["node_modules", "app/api", "db", "build", "scripts", "vite.config.ts"]
+}
