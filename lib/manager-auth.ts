@@ -55,7 +55,7 @@ export async function createManagerCookie(username: string) {
     ),
   );
   const signature = await hmac(payload);
-  return `${MANAGER_COOKIE}=${payload}.${signature}; Path=/; Max-Age=${SESSION_SECONDS}; HttpOnly; Secure; SameSite=Strict`;
+  return `${MANAGER_COOKIE}=${payload}.${signature}; Path=/; HttpOnly; Secure; SameSite=Strict`;
 }
 
 export function clearManagerCookie() {

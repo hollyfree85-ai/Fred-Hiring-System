@@ -1,4 +1,4 @@
-const CACHE_NAME = "fred-hiring-system-v10";
+const CACHE_NAME = "fred-hiring-system-v11";
 const scopeUrl = new URL(self.registration.scope);
 const asset = (path) => new URL(path, scopeUrl).toString();
 const APP_SHELL = [
@@ -27,6 +27,11 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  if (url.pathname.includes("/api/")) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
 
   if (request.mode === "navigate") {
     event.respondWith(

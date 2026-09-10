@@ -370,3 +370,23 @@ if (
   throw new Error("PWA manifest is incomplete or has an unsafe GitHub Pages scope.");
 }
 console.log("PWA manifest: install scope and icons verified");
+
+const [authShimSource, loginUiSource, serviceWorkerSource, managerAuthSource] = await Promise.all([
+  readFile(new URL("../github-src/firebase-api-shim.ts", import.meta.url), "utf8"),
+  readFile(new URL("../components/manager-portal.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+  readFile(new URL("../lib/manager-auth.ts", import.meta.url), "utf8"),
+]);
+if (
+  !authShimSource.includes("setPersistence(auth, authModule.inMemoryPersistence)")
+  || !authShimSource.includes("setPersistence(provisioningAuth, authModule.inMemoryPersistence)")
+  || authShimSource.includes("localStorage")
+  || !loginUiSource.includes('autoComplete="off"')
+  || !loginUiSource.includes('autoComplete="new-password"')
+  || !serviceWorkerSource.includes('url.pathname.includes("/api/")')
+  || !serviceWorkerSource.includes('cache: "no-store"')
+  || managerAuthSource.includes(`Max-Age=${"${SESSION_SECONDS}"}`)
+) {
+  throw new Error("Staff/Owner credentials or authenticated sessions could persist on the device.");
+}
+console.log("Staff/Owner security: memory-only auth, non-persistent cookie, autofill opt-out, and API no-cache verified");

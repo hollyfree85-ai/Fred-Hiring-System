@@ -8,7 +8,7 @@ A mobile-friendly restaurant hiring assessment. The public candidate flow requir
 - 150 work-psychology forms covering integrity, conscientiousness, teamwork, service orientation, emotional regulation, and adaptability; the system selects five questions per trait
 - 1,000 technical forms; the system selects 45 using the chosen restaurant concept, job family, position, and experience level
 - 220 restaurant concepts, from service-model categories through American, steak/BBQ, seafood, Japanese, Chinese/Taiwanese, Korean, and Southeast Asian concepts
-- 12 alphabetized job families and 113 restaurant positions; the position selector shows the complete alphabetized list for the chosen family and its item count
+- 12 alphabetized job families and 113 restaurant positions; the position selector shows the complete alphabetized list for the chosen family
 - Candidate path: Restaurant Type → Job Family → Position → Experience Level → Assessment
 - Session-seeded selection keeps the same candidate's question set stable through scoring while rotating forms between candidate sessions
 - Weighted result: technical 60% and work psychology 40% (integrity/reliability 15%, teamwork/service 12.5%, emotional control/adaptability 12.5%)
@@ -25,6 +25,7 @@ Development timelines are planning estimates, not guarantees, and must be adjust
 - Firebase Authentication:
   - anonymous sign-in for candidates, with no candidate sign-up screen
   - Email/Password authentication behind the Staff / Owner interface
+  - memory-only Staff/Owner sessions: reload, close, or logout clears the authenticated session instead of retaining it on the device
 - Cloud Firestore for assessment submissions and live manager updates
 - Firestore Security Rules allow candidates to create submissions, active Managers to review them, and the Owner to manage the Manager allowlist
 - Fred is the sole bootstrap Owner; passwords are stored only by Firebase Authentication and never committed to GitHub

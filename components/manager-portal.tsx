@@ -149,7 +149,7 @@ function ScoreRing({ value, size = "large" }: { value: number; size?: "small" | 
 
 function ManagerLogin({ onSuccess }: { onSuccess: (session: StaffSession) => void }) {
   const { t } = useI18n();
-  const [username, setUsername] = useState("Fred");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -170,6 +170,7 @@ function ManagerLogin({ onSuccess }: { onSuccess: (session: StaffSession) => voi
     } catch (caught) {
       setError(t(caught instanceof Error ? caught.message : "Login failed."));
     } finally {
+      setPassword("");
       setLoading(false);
     }
   }
@@ -183,9 +184,9 @@ function ManagerLogin({ onSuccess }: { onSuccess: (session: StaffSession) => voi
           <p className="text-sm leading-6 text-slate-500">{t("Managers can review candidate analysis. The Owner also controls manager accounts.")}</p>
         </CardHeader>
         <CardContent className="pb-8 sm:px-8">
-          <form onSubmit={login} className="space-y-5">
-            <div className="space-y-2"><Label htmlFor="manager-name">{t("Username")}</Label><Input id="manager-name" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} className="h-12 rounded-xl" /></div>
-            <div className="space-y-2"><Label htmlFor="manager-password">{t("Password")}</Label><PasswordInput id="manager-password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className="h-12 rounded-xl" /></div>
+          <form onSubmit={login} autoComplete="off" className="space-y-5">
+            <div className="space-y-2"><Label htmlFor="manager-name">{t("Username")}</Label><Input id="manager-name" name="staff-user-entry" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" className="h-12 rounded-xl" /></div>
+            <div className="space-y-2"><Label htmlFor="manager-password">{t("Password")}</Label><PasswordInput id="manager-password" name="staff-secret-entry" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" data-lpignore="true" data-1p-ignore="true" className="h-12 rounded-xl" /></div>
             {error && <div role="alert" className="flex gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{error}</div>}
             <Button type="submit" disabled={loading || password.length < 8 || !username.trim()} className="h-12 w-full rounded-xl bg-[#e7512f] text-base font-bold text-white shadow-[0_5px_0_#b7371d] hover:bg-[#d94625] active:translate-y-1 active:shadow-none">{loading ? <Loader2 className="size-4 animate-spin" /> : <LockKeyhole className="size-4" />} {t("Open secure workspace")}</Button>
           </form>

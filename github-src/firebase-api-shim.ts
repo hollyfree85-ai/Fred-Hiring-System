@@ -114,10 +114,9 @@ const allowedHours = new Set(["under_20", "20_30", "30_40", "over_40"]);
 const allowedDays = new Set(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]);
 const allowedShifts = new Set(["Lunch", "Dinner", "Double / Long Shift"]);
 const allowedTraining = new Set(["not_applicable", "yes", "no", "in_progress"]);
-const loginAttemptKey = "fred-hiring-staff-login-attempts";
-
 let runtime: FirebaseRuntime;
 let liveRows: StoredSubmission[] | null = null;
+let failedLoginAttempts: number[] = [];
 let stopLiveListener: (() => void) | null = null;
 let currentStaffSession: StaffSession = {
   authenticated: false,
@@ -298,22 +297,16 @@ function friendlyFirebaseError(error: unknown, fallback: string) {
 
 function recentLoginAttempts() {
   const cutoff = Date.now() - 15 * 60 * 1000;
-  try {
-    const values = JSON.parse(localStorage.getItem(loginAttemptKey) || "[]") as unknown;
-    return Array.isArray(values)
-      ? values.filter((value): value is number => typeof value === "number" && value >= cutoff)
-      : [];
-  } catch {
-    return [];
-  }
+  failedLoginAttempts = failedLoginAttempts.filter((value) => value >= cutoff);
+  return failedLoginAttempts;
 }
 
 function recordFailedLogin() {
-  localStorage.setItem(loginAttemptKey, JSON.stringify([...recentLoginAttempts(), Date.now()]));
+  failedLoginAttempts = [...recentLoginAttempts(), Date.now()];
 }
 
 function clearFailedLogins() {
-  localStorage.removeItem(loginAttemptKey);
+  failedLoginAttempts = [];
 }
 
 function documentToStored(document: FirestoreDocument): StoredSubmission | null {
@@ -797,9 +790,14 @@ async function loadFirebase(): Promise<FirebaseRuntime> {
   const app = appModule.initializeApp(firebaseConfig);
   const provisioningApp = appModule.initializeApp(firebaseConfig, "manager-provisioning");
   const auth = authModule.getAuth(app) as FirebaseAuth;
+  const provisioningAuth = authModule.getAuth(provisioningApp) as FirebaseAuth;
+  await Promise.all([
+    authModule.setPersistence(auth, authModule.inMemoryPersistence),
+    authModule.setPersistence(provisioningAuth, authModule.inMemoryPersistence),
+  ]);
   return {
     auth,
-    provisioningAuth: authModule.getAuth(provisioningApp) as FirebaseAuth,
+    provisioningAuth,
     db: firestoreModule.getFirestore(app),
     signInAnonymously: authModule.signInAnonymously,
     signInWithEmailAndPassword: authModule.signInWithEmailAndPassword,
@@ -825,8 +823,12 @@ async function loadFirebase(): Promise<FirebaseRuntime> {
 export async function installFirebaseApiShim() {
   assertFirebaseConfigured();
   runtime = await loadFirebase();
-  await runtime.auth.authStateReady();
-  if (!runtime.auth.currentUser) await runtime.signInAnonymously(runtime.auth);
+  await Promise.all([runtime.auth.authStateReady(), runtime.provisioningAuth.authStateReady()]);
+  await Promise.all([
+    runtime.auth.currentUser ? runtime.signOut(runtime.auth) : Promise.resolve(),
+    runtime.provisioningAuth.currentUser ? runtime.signOut(runtime.provisioningAuth) : Promise.resolve(),
+  ]);
+  await runtime.signInAnonymously(runtime.auth);
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const response = await handleStaticApi(input, init);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n";
@@ -14,6 +14,10 @@ export function PasswordInput({ className, leadingIcon, ...props }: PasswordInpu
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const label = t(visible ? "Hide password" : "Show password");
+
+  useEffect(() => {
+    if (props.value === "") setVisible(false);
+  }, [props.value]);
 
   return (
     <div className="relative">
