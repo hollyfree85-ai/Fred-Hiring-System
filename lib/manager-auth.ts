@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-export const MANAGER_COOKIE = "juicy_manager_session";
+export const MANAGER_COOKIE = "fred_hiring_manager_session";
 const SESSION_SECONDS = 8 * 60 * 60;
 
 const encoder = new TextEncoder();

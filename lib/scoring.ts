@@ -4,6 +4,7 @@ import {
   getAssessmentQuestions,
   type QuestionCategory,
 } from "@/lib/question-bank";
+import { translate, type AppLocale } from "@/lib/i18n";
 
 export const categoryWeights: Record<QuestionCategory, number> = {
   work_style: 15,
@@ -215,7 +216,9 @@ function estimatedImprovementTimeline(percentage: number) {
   return "1–2 weeks";
 }
 
-export function buildDetailedAnalysis(result: ScoreResult) {
+export function buildDetailedAnalysis(result: ScoreResult, locale: AppLocale = "en") {
+  const t = (source: string, values: Record<string, string | number> = {}) => translate(locale, source, values);
+  const categoryLabel = (category: QuestionCategory) => t(categoryLabels[category]);
   const ordered = (Object.keys(result.categoryScores) as QuestionCategory[])
     .map((category) => ({ category, ...result.categoryScores[category] }))
     .sort((a, b) => b.percentage - a.percentage);
@@ -223,12 +226,12 @@ export function buildDetailedAnalysis(result: ScoreResult) {
     .filter((item) => item.percentage >= 75)
     .map((item) => ({
       category: item.category,
-      label: categoryLabels[item.category],
+      label: categoryLabel(item.category),
       percentage: item.percentage,
       statement:
         item.percentage >= 90
-          ? "Answers consistently matched the expected job standard."
-          : "Answers generally matched the expected job standard, with some room to confirm in interview.",
+          ? t("Answers consistently matched the expected job standard.")
+          : t("Answers generally matched the expected job standard, with some room to confirm in interview."),
     }));
   const priorities = [...ordered]
     .reverse()
@@ -236,12 +239,12 @@ export function buildDetailedAnalysis(result: ScoreResult) {
     .slice(0, 3)
     .map((item) => ({
       category: item.category,
-      label: categoryLabels[item.category],
+      label: categoryLabel(item.category),
       percentage: item.percentage,
       statement:
         item.percentage < 65
-          ? "Multiple responses did not match expected procedure; direct follow-up and retraining evidence are needed."
-          : "Some responses need clarification through a structured follow-up interview.",
+          ? t("Multiple responses did not match expected procedure; direct follow-up and retraining evidence are needed.")
+          : t("Some responses need clarification through a structured follow-up interview."),
     }));
 
   const reviewItems = result.answerDetails
@@ -261,36 +264,36 @@ export function buildDetailedAnalysis(result: ScoreResult) {
   const swotWeaknessCategories = weakestFirst.filter((item) => item.percentage < 80).slice(0, 3);
   const swotStrengths = swotStrengthCategories.length
     ? swotStrengthCategories.map((item) => ({
-        title: `${categoryLabels[item.category]} · ${item.percentage}%`,
+        title: t("{category} · {percentage}%", { category: categoryLabel(item.category), percentage: item.percentage }),
         detail:
           item.percentage >= 90
-            ? "Written responses consistently matched the job standard and indicate a strong area to verify during the structured interview."
-            : "Written responses generally matched the job standard and provide a positive role-fit signal to confirm in live examples.",
+            ? t("Written responses consistently matched the job standard and indicate a strong area to verify during the structured interview.")
+            : t("Written responses generally matched the job standard and provide a positive role-fit signal to confirm in live examples."),
       }))
     : [{
-        title: `Relative strength · ${categoryLabels[ordered[0].category]} ${ordered[0].percentage}%`,
+        title: t("Relative strength · {category} {percentage}%", { category: categoryLabel(ordered[0].category), percentage: ordered[0].percentage }),
         detail:
-          "This was the candidate's highest section, but it remains below the 75% strength marker and still needs direct verification.",
+          t("This was the candidate's highest section, but it remains below the 75% strength marker and still needs direct verification."),
       }];
   const swotWeaknesses = swotWeaknessCategories.length
     ? swotWeaknessCategories.map((item) => ({
-        title: `${categoryLabels[item.category]} · ${item.percentage}%`,
+        title: t("{category} · {percentage}%", { category: categoryLabel(item.category), percentage: item.percentage }),
         detail:
           item.percentage < passingRules[item.category]
-            ? `This section is below its ${passingRules[item.category]}% minimum. Responses showed inconsistent alignment with expected job decisions.`
-            : "This section met its minimum but remains below the 80% coaching marker, so consistent execution should be confirmed on the job.",
+            ? t("This section is below its {minimum}% minimum. Responses showed inconsistent alignment with expected job decisions.", { minimum: passingRules[item.category] })
+            : t("This section met its minimum but remains below the 80% coaching marker, so consistent execution should be confirmed on the job."),
       }))
     : [{
-        title: "Performance not yet observed",
+        title: t("Performance not yet observed"),
         detail:
-          "No major written section gap was identified, but the assessment does not show pace, consistency, or real-shift performance.",
+          t("No major written section gap was identified, but the assessment does not show pace, consistency, or real-shift performance."),
       }];
   const opportunityCategories = (swotStrengthCategories.length
     ? swotStrengthCategories
     : ordered.slice(0, 2)).slice(0, 2);
   const swotOpportunities = opportunityCategories.map((item) => ({
-    title: `${categoryLabels[item.category]} contribution`,
-    detail: developmentGuidance[item.category].opportunity,
+    title: t("{category} contribution", { category: categoryLabel(item.category) }),
+    detail: t(developmentGuidance[item.category].opportunity),
   }));
 
   const criticalReviewItems = result.answerDetails.filter(
@@ -299,21 +302,21 @@ export function buildDetailedAnalysis(result: ScoreResult) {
   const swotThreats = [
     ...(criticalReviewItems.length
       ? [{
-          title: `${criticalReviewItems.length} critical response${criticalReviewItems.length === 1 ? "" : "s"} require verification`,
+          title: t("{count} critical response(s) require verification", { count: criticalReviewItems.length }),
           detail:
-            "Do not assign the related task independently until the candidate explains and demonstrates the correct safety, payment, alcohol-service, or authorization procedure.",
+            t("Do not assign the related task independently until the candidate explains and demonstrates the correct safety, payment, alcohol-service, or authorization procedure."),
         }]
       : []),
     ...swotWeaknessCategories.slice(0, criticalReviewItems.length ? 2 : 3).map((item) => ({
-      title: `${categoryLabels[item.category]} execution risk`,
-      detail: developmentGuidance[item.category].risk,
+      title: t("{category} execution risk", { category: categoryLabel(item.category) }),
+      detail: t(developmentGuidance[item.category].risk),
     })),
   ];
   if (!swotThreats.length) {
     swotThreats.push({
-      title: "Written-score overconfidence",
+      title: t("Written-score overconfidence"),
       detail:
-        "A strong written score may not predict speed, consistency, teamwork, or performance under live restaurant pressure; verify these during structured interviews and supervised shifts.",
+        t("A strong written score may not predict speed, consistency, teamwork, or performance under live restaurant pressure; verify these during structured interviews and supervised shifts."),
     });
   }
 
@@ -324,22 +327,22 @@ export function buildDetailedAnalysis(result: ScoreResult) {
     ...(criticalReviewItems.length
       ? [{
           priority: 1,
-          area: "Critical procedure verification",
+          area: t("Critical procedure verification"),
           currentPercentage: null,
           action:
-            "Review every zero-point critical answer, retrain the related procedure, and require a supervised demonstration before independent assignment.",
-          estimatedTimeline: "Before the first independent shift; recheck within 7 days",
+            t("Review every zero-point critical answer, retrain the related procedure, and require a supervised demonstration before independent assignment."),
+          estimatedTimeline: t("Before the first independent shift; recheck within 7 days"),
           successMeasure:
-            "Explains and demonstrates every flagged critical procedure correctly with manager sign-off.",
+            t("Explains and demonstrates every flagged critical procedure correctly with manager sign-off."),
         }]
       : []),
     ...planCategories.map((item, index) => ({
       priority: index + (criticalReviewItems.length ? 2 : 1),
-      area: categoryLabels[item.category],
+      area: categoryLabel(item.category),
       currentPercentage: item.percentage,
-      action: developmentGuidance[item.category].action,
-      estimatedTimeline: estimatedImprovementTimeline(item.percentage),
-      successMeasure: developmentGuidance[item.category].successMeasure,
+      action: t(developmentGuidance[item.category].action),
+      estimatedTimeline: t(estimatedImprovementTimeline(item.percentage)),
+      successMeasure: t(developmentGuidance[item.category].successMeasure),
     })),
   ];
 
@@ -347,33 +350,33 @@ export function buildDetailedAnalysis(result: ScoreResult) {
     ? {
         status: "recommended" as const,
         label: result.fitPercentage >= 85
-          ? "Strong fit — recommended to advance"
-          : "Good fit — recommended to advance",
+          ? t("Strong fit — recommended to advance")
+          : t("Good fit — recommended to advance"),
         fitPercentage: result.fitPercentage,
         rationale:
-          "The candidate met every written-assessment minimum and had no zero-point critical response. Continue with the same structured interview and reference process used for other candidates in this role.",
+          t("The candidate met every written-assessment minimum and had no zero-point critical response. Continue with the same structured interview and reference process used for other candidates in this role."),
       }
     : result.fitPercentage >= 65 && result.criticalMisses <= 1
       ? {
           status: "conditional" as const,
-          label: "Conditional — verify gaps before hiring",
+          label: t("Conditional — verify gaps before hiring"),
           fitPercentage: result.fitPercentage,
           rationale:
-            "The overall signal is near the hiring standard, but at least one minimum was missed. Advance only if a structured interview and job-related demonstration resolve every listed concern.",
+            t("The overall signal is near the hiring standard, but at least one minimum was missed. Advance only if a structured interview and job-related demonstration resolve every listed concern."),
         }
       : {
           status: "not_recommended" as const,
-          label: "Not recommended at this stage",
+          label: t("Not recommended at this stage"),
           fitPercentage: result.fitPercentage,
           rationale:
-            "The written evidence does not currently support role readiness. Do not rely on this label alone; document the job-related gaps and apply the same review process used for comparable candidates.",
+            t("The written evidence does not currently support role readiness. Do not rely on this label alone; document the job-related gaps and apply the same review process used for comparable candidates."),
         };
 
   return {
     summary:
       result.outcome === "pass"
-        ? `The candidate met the written-assessment standard with a ${result.fitPercentage}% role-fit score and no failed minimum criterion.`
-        : `The candidate earned a ${result.fitPercentage}% role-fit score but did not meet every written-assessment minimum. Review the listed criteria before making any hiring decision.`,
+        ? t("The candidate met the written-assessment standard with a {percentage}% role-fit score and no failed minimum criterion.", { percentage: result.fitPercentage })
+        : t("The candidate earned a {percentage}% role-fit score but did not meet every written-assessment minimum. Review the listed criteria before making any hiring decision.", { percentage: result.fitPercentage }),
     hiringRecommendation,
     swot: {
       strengths: swotStrengths,
@@ -383,17 +386,30 @@ export function buildDetailedAnalysis(result: ScoreResult) {
     },
     developmentPlan,
     developmentNote:
-      "Training times are planning estimates based on written-score gaps, not guarantees. A manager should adjust them after observing learning pace and job performance; never use a disability or other protected characteristic to set the timeline.",
+      t("Training times are planning estimates based on written-score gaps, not guarantees. A manager should adjust them after observing learning pace and job performance; never use a disability or other protected characteristic to set the timeline."),
     strengths,
     priorities,
     reviewItems,
     interviewPrompts: [...new Set(focusCategories)].map(
-      (category) => categoryInterviewPrompts[category],
+      (category) => t(categoryInterviewPrompts[category]),
     ),
-    failedRules: result.failedRules,
+    failedRules: [
+      ...(result.fitPercentage < passingRules.overall
+        ? [t("Overall fit is below {minimum}%.", { minimum: passingRules.overall })]
+        : []),
+      ...(Object.keys(categoryWeights) as QuestionCategory[])
+        .filter((category) => result.categoryScores[category].percentage < passingRules[category])
+        .map((category) => t("{category} is below {minimum}%.", {
+          category: categoryLabel(category),
+          minimum: passingRules[category],
+        })),
+      ...(result.criticalMisses > 0
+        ? [t("{count} critical safety, payment, or authorization item(s) require review.", { count: result.criticalMisses })]
+        : []),
+    ],
     methodology:
-      "Weighted score: Role Technical Knowledge 60%, Work Style & Reliability 15%, Communication 12.5%, and Customer Problem Solving 12.5%. The first three behavioral sections contain 30 questions total; the role section contains 45 questions. Passing requires 75% overall, every section minimum, and no zero-point answer on a designated critical item.",
+      t("Weighted score: Role Technical Knowledge 60%, Work Style & Reliability 15%, Communication 12.5%, and Customer Problem Solving 12.5%. The first three behavioral sections contain 30 questions total; the role section contains 45 questions. Passing requires 75% overall, every section minimum, and no zero-point answer on a designated critical item."),
     limitation:
-      "This is a job-related situational assessment, not a clinical or validated psychological diagnosis. Use it consistently as one input alongside a structured interview, references, and any reasonable accommodation—not as the sole hiring decision.",
+      t("This is a job-related situational assessment, not a clinical or validated psychological diagnosis. Use it consistently as one input alongside a structured interview, references, and any reasonable accommodation—not as the sole hiring decision."),
   };
 }

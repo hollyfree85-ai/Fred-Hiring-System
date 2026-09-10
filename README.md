@@ -1,6 +1,6 @@
 # Fred Hiring System
 
-A mobile-friendly hiring assessment for The Juicy Seafood & Bar. The public candidate flow requires no account, while the protected Owner and Manager workspace shows role-fit scoring, detailed answer analysis, SWOT hiring risk, interview prompts, prioritized coaching timelines, and downloadable PDF reports.
+A mobile-friendly restaurant hiring assessment. The public candidate flow requires no account, while the protected Owner and Manager workspace shows role-fit scoring, detailed answer analysis, SWOT hiring risk, interview prompts, prioritized coaching timelines, and downloadable PDF reports.
 
 ## Assessment design
 

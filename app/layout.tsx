@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Candidate Assessment | The Juicy Seafood & Bar",
-  description: "Role-specific candidate assessment for The Juicy Seafood & Bar.",
+  title: "Fred Hiring System",
+  description: "Role-specific restaurant candidate assessment.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

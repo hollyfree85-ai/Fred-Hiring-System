@@ -27,3 +27,13 @@ async function start() {
 }
 
 void start();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    const serviceWorkerUrl = new URL("sw.js", document.baseURI);
+    const scopeUrl = new URL(".", document.baseURI);
+    void navigator.serviceWorker.register(serviceWorkerUrl, {
+      scope: scopeUrl.pathname,
+    });
+  });
+}

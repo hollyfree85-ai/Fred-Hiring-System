@@ -16,6 +16,7 @@ import {
   type QuestionCategory,
 } from "@/lib/question-bank";
 import { buildDetailedAnalysis, scoreSubmission } from "@/lib/scoring";
+import { isAppLocale, translate, type AppLocale } from "@/lib/i18n";
 import {
   assertFirebaseConfigured,
   firebaseConfig,
@@ -63,6 +64,9 @@ type FirebaseRuntime = {
   signInAnonymously: (auth: FirebaseAuth) => Promise<unknown>;
   signInWithEmailAndPassword: (auth: FirebaseAuth, email: string, password: string) => Promise<FirebaseUserCredential>;
   createUserWithEmailAndPassword: (auth: FirebaseAuth, email: string, password: string) => Promise<FirebaseUserCredential>;
+  emailCredential: (email: string, password: string) => unknown;
+  reauthenticateWithCredential: (user: FirebaseUser, credential: unknown) => Promise<FirebaseUserCredential>;
+  updatePassword: (user: FirebaseUser, password: string) => Promise<void>;
   signOut: (auth: FirebaseAuth) => Promise<void>;
   collection: (db: unknown, path: string) => unknown;
   doc: (db: unknown, path: string, id: string) => unknown;
@@ -273,6 +277,7 @@ function friendlyFirebaseError(error: unknown, fallback: string) {
   }
   if (code.includes("email-already-in-use")) return "That username is already in use.";
   if (code.includes("weak-password")) return "Use a password with at least 8 characters.";
+  if (code.includes("requires-recent-login")) return "For security, sign out, sign in again, and retry the password change.";
   if (code.includes("too-many-requests")) return "Too many attempts. Wait and try again.";
   if (code.includes("permission-denied")) return "Secure database access was denied. Please contact the administrator.";
   if (code.includes("network-request-failed") || code.includes("unavailable")) return "Network connection failed. Please check the connection and try again.";
@@ -350,23 +355,23 @@ function summaryFromStored(stored: StoredSubmission): SubmissionSummary {
   }
 }
 
-function detailFromStored(stored: StoredSubmission): SubmissionDetail {
+function detailFromStored(stored: StoredSubmission, locale: AppLocale = "en"): SubmissionDetail {
   const score = scoreSubmission(stored.role, stored.answers);
   const categories = Object.keys(score.categoryScores) as QuestionCategory[];
   return {
     ...summaryFromStored(stored),
-    roleLabel: roleLabels[stored.role],
+    roleLabel: translate(locale, roleLabels[stored.role]),
     totalScore: score.totalScore,
     maxScore: score.maxScore,
     testVersion: stored.testVersion,
     biodata: stored.biodata,
     categoryScores: categories.map((category) => ({
       category,
-      label: categoryLabels[category],
+      label: translate(locale, categoryLabels[category]),
       ...score.categoryScores[category],
     })),
     answers: score.answerDetails,
-    analysis: buildDetailedAnalysis(score),
+    analysis: buildDetailedAnalysis(score, locale),
   };
 }
 
@@ -390,11 +395,11 @@ function beginLiveResults() {
     submissionsQuery(),
     (snapshot) => {
       liveRows = rowsFromSnapshot(snapshot);
-      window.dispatchEvent(new Event("juicy-submissions-updated"));
+      window.dispatchEvent(new Event("fred-hiring-submissions-updated"));
     },
     () => {
       liveRows = null;
-      window.dispatchEvent(new Event("juicy-submissions-updated"));
+      window.dispatchEvent(new Event("fred-hiring-submissions-updated"));
     },
   );
 }
@@ -497,14 +502,14 @@ async function handleManagerList() {
   }
 }
 
-async function handleManagerDetail(id: string) {
+async function handleManagerDetail(id: string, locale: AppLocale) {
   if (!await requireStaff()) return json({ error: "Unauthorized" }, 401);
   try {
     const document = await runtime.getDoc(runtime.doc(runtime.db, "submissions", id));
     if (!document.exists()) return json({ error: "Result not found." }, 404);
     const stored = documentToStored(document);
     if (!stored) return json({ error: "Stored result is invalid." }, 422);
-    return json({ submission: detailFromStored(stored) });
+    return json({ submission: detailFromStored(stored, locale) });
   } catch (error) {
     const message = error instanceof Error && error.message.includes("answer")
       ? "The stored answer set could not be verified against this test version."
@@ -627,6 +632,64 @@ async function handleOwnerManagerUpdate(id: string, input: RequestInfo | URL, in
   }
 }
 
+async function handleOwnerPasswordChange(input: RequestInfo | URL, init?: RequestInit) {
+  if (!await requireOwner()) return json({ error: "Owner access required." }, 403);
+  try {
+    const body = await requestBody(input, init);
+    const currentPassword = text(body.currentPassword, 160);
+    const newPassword = text(body.newPassword, 160);
+    if (currentPassword.length < 8) return json({ error: "Enter the current Owner password." }, 400);
+    if (newPassword.length < 8 || newPassword.length > 72) {
+      return json({ error: "New password must be 8–72 characters." }, 400);
+    }
+    if (currentPassword === newPassword) return json({ error: "Choose a new password that is different from the current password." }, 400);
+    const user = runtime.auth.currentUser;
+    if (!user || user.email?.toLowerCase() !== ownerIdentity.email.toLowerCase()) {
+      return json({ error: "Owner access required." }, 403);
+    }
+    const credential = runtime.emailCredential(ownerIdentity.email, currentPassword);
+    await runtime.reauthenticateWithCredential(user, credential);
+    await runtime.updatePassword(user, newPassword);
+    return json({ updated: true });
+  } catch (error) {
+    return json({ error: friendlyFirebaseError(error, "The Owner password could not be changed.") }, 400);
+  }
+}
+
+async function handleOwnerManagerPasswordChange(id: string, input: RequestInfo | URL, init?: RequestInit) {
+  if (!await requireOwner()) return json({ error: "Owner access required." }, 403);
+  try {
+    const reference = runtime.doc(runtime.db, "staff", id);
+    const document = await runtime.getDoc(reference);
+    if (!document.exists() || document.data().role !== "manager") return json({ error: "Manager account not found." }, 404);
+    const body = await requestBody(input, init);
+    const currentPassword = text(body.currentPassword, 160);
+    const newPassword = text(body.newPassword, 160);
+    if (currentPassword.length < 8) return json({ error: "Enter the manager's current password." }, 400);
+    if (newPassword.length < 8 || newPassword.length > 72) {
+      return json({ error: "New password must be 8–72 characters." }, 400);
+    }
+    if (currentPassword === newPassword) return json({ error: "Choose a new password that is different from the current password." }, 400);
+    const authEmail = text(document.data().authEmail, 120);
+    if (!authEmail) return json({ error: "Manager sign-in information is incomplete." }, 422);
+
+    await runtime.signOut(runtime.provisioningAuth);
+    const credential = await runtime.signInWithEmailAndPassword(runtime.provisioningAuth, authEmail, currentPassword);
+    if (credential.user.uid !== id) throw new Error("The manager account identity did not match.");
+    await runtime.updatePassword(credential.user, newPassword);
+    await runtime.updateDoc(reference, { updatedAt: runtime.serverTimestamp() });
+    return json({ updated: true });
+  } catch (error) {
+    return json({ error: friendlyFirebaseError(error, "The manager password could not be changed.") }, 400);
+  } finally {
+    try {
+      await runtime.signOut(runtime.provisioningAuth);
+    } catch {
+      // The secondary authentication session never controls the Owner session.
+    }
+  }
+}
+
 async function handleOwnerManagerRemove(id: string) {
   if (!await requireOwner()) return json({ error: "Owner access required." }, 403);
   try {
@@ -664,9 +727,17 @@ async function handleStaticApi(input: RequestInfo | URL, init?: RequestInit) {
   }
   if (url.pathname === "/api/manager/submissions" && method === "GET") return handleManagerList();
   const detailMatch = url.pathname.match(/^\/api\/manager\/submissions\/([^/]+)$/);
-  if (detailMatch && method === "GET") return handleManagerDetail(decodeURIComponent(detailMatch[1]));
+  if (detailMatch && method === "GET") {
+    const locale = isAppLocale(url.searchParams.get("lang")) ? url.searchParams.get("lang") as AppLocale : "en";
+    return handleManagerDetail(decodeURIComponent(detailMatch[1]), locale);
+  }
   if (url.pathname === "/api/owner/managers" && method === "GET") return handleOwnerManagerList();
   if (url.pathname === "/api/owner/managers" && method === "POST") return handleOwnerManagerCreate(input, init);
+  if (url.pathname === "/api/owner/password" && method === "POST") return handleOwnerPasswordChange(input, init);
+  const managerPasswordMatch = url.pathname.match(/^\/api\/owner\/managers\/([^/]+)\/password$/);
+  if (managerPasswordMatch && method === "POST") {
+    return handleOwnerManagerPasswordChange(decodeURIComponent(managerPasswordMatch[1]), input, init);
+  }
   const managerAccountMatch = url.pathname.match(/^\/api\/owner\/managers\/([^/]+)$/);
   if (managerAccountMatch && method === "PATCH") {
     return handleOwnerManagerUpdate(decodeURIComponent(managerAccountMatch[1]), input, init);
@@ -696,6 +767,9 @@ async function loadFirebase(): Promise<FirebaseRuntime> {
     signInAnonymously: authModule.signInAnonymously,
     signInWithEmailAndPassword: authModule.signInWithEmailAndPassword,
     createUserWithEmailAndPassword: authModule.createUserWithEmailAndPassword,
+    emailCredential: authModule.EmailAuthProvider.credential,
+    reauthenticateWithCredential: authModule.reauthenticateWithCredential,
+    updatePassword: authModule.updatePassword,
     signOut: authModule.signOut,
     collection: firestoreModule.collection,
     doc: firestoreModule.doc,
