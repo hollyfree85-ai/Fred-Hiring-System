@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/password-input";
 import { Switch } from "@/components/ui/switch";
 import type { ManagerAccount } from "@/lib/client-types";
 import { intlLocale, useI18n } from "@/lib/i18n";
@@ -249,12 +250,11 @@ export function OwnerManagerAccounts() {
           <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-cyan-700 text-white shadow-lg shadow-cyan-900/15"><UserPlus className="size-5" /></span><div><h4 className="font-black text-slate-950">{t("Create manager")}</h4><p className="text-sm text-slate-500">{t("Only the Owner can do this.")}</p></div></div>
           <div className="mt-5 space-y-4">
             <div className="space-y-2"><Label htmlFor="new-manager-name">{t("Display name")}</Label><Input id="new-manager-name" value={form.displayName} onChange={(event) => setForm((current) => ({ ...current, displayName: event.target.value }))} minLength={2} maxLength={80} required className="h-11 rounded-xl bg-white" placeholder={t("Manager's full name")} /></div>
-            <div className="space-y-2"><Label htmlFor="new-manager-username">{t("Username")}</Label><Input id="new-manager-username" value={form.username} onChange={(event) => setForm((current) => ({ ...current, username: event.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") }))} minLength={3} maxLength={32} required autoCapitalize="none" spellCheck={false} className="h-11 rounded-xl bg-white" placeholder="e.g. manager_huntsville" /><p className="text-xs leading-5 text-slate-500">{t("3–32 letters, numbers, underscores, or hyphens. Username cannot be changed later.")}</p></div>
-            <div className="space-y-2"><Label htmlFor="new-manager-password">{t("Temporary password")}</Label><div className="relative"><KeyRound className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input id="new-manager-password" type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} minLength={8} maxLength={72} required className="h-11 rounded-xl bg-white pl-10" placeholder={t("At least 8 characters")} /></div></div>
-            <div className="space-y-2"><Label htmlFor="confirm-manager-password">{t("Confirm password")}</Label><Input id="confirm-manager-password" type="password" autoComplete="new-password" value={form.confirmPassword} onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))} minLength={8} maxLength={72} required className="h-11 rounded-xl bg-white" placeholder={t("Repeat temporary password")} /></div>
+            <div className="space-y-2"><Label htmlFor="new-manager-username">{t("Username")}</Label><Input id="new-manager-username" value={form.username} onChange={(event) => setForm((current) => ({ ...current, username: event.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") }))} minLength={3} maxLength={32} required autoCapitalize="none" spellCheck={false} className="h-11 rounded-xl bg-white" placeholder="e.g. manager_huntsville" /></div>
+            <div className="space-y-2"><Label htmlFor="new-manager-password">{t("Temporary password")}</Label><PasswordInput id="new-manager-password" autoComplete="new-password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} minLength={8} maxLength={72} required className="h-11 rounded-xl bg-white" leadingIcon={<KeyRound className="size-4" />} placeholder={t("At least 8 characters")} /></div>
+            <div className="space-y-2"><Label htmlFor="confirm-manager-password">{t("Confirm password")}</Label><PasswordInput id="confirm-manager-password" autoComplete="new-password" value={form.confirmPassword} onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))} minLength={8} maxLength={72} required className="h-11 rounded-xl bg-white" placeholder={t("Repeat temporary password")} /></div>
           </div>
           <Button type="submit" disabled={saving} className="mt-5 h-11 w-full rounded-xl bg-[#e7512f] font-bold text-white shadow-[0_5px_0_#b7371d] hover:bg-[#d94625] active:translate-y-1 active:shadow-none">{saving ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />} {t("Create manager account")}</Button>
-          <p className="mt-4 text-xs leading-5 text-slate-500">{t("Passwords are handled by Firebase Authentication and are never stored in candidate data or shown again here.")}</p>
         </form>
 
         <section>
@@ -333,9 +333,9 @@ function PasswordFields({
 }) {
   return (
     <div className="grid gap-3">
-      <div className="space-y-2"><Label htmlFor={`${prefix}-current`}>{t("Current password")}</Label><Input id={`${prefix}-current`} type="password" autoComplete="current-password" minLength={8} maxLength={72} value={form.currentPassword} onChange={(event) => setForm((current) => ({ ...current, currentPassword: event.target.value }))} className="h-11 rounded-xl bg-white" /></div>
-      <div className="space-y-2"><Label htmlFor={`${prefix}-new`}>{t("New password")}</Label><Input id={`${prefix}-new`} type="password" autoComplete="new-password" minLength={8} maxLength={72} value={form.newPassword} onChange={(event) => setForm((current) => ({ ...current, newPassword: event.target.value }))} className="h-11 rounded-xl bg-white" /></div>
-      <div className="space-y-2"><Label htmlFor={`${prefix}-confirm`}>{t("Confirm new password")}</Label><Input id={`${prefix}-confirm`} type="password" autoComplete="new-password" minLength={8} maxLength={72} value={form.confirmPassword} onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))} className="h-11 rounded-xl bg-white" /></div>
+      <div className="space-y-2"><Label htmlFor={`${prefix}-current`}>{t("Current password")}</Label><PasswordInput id={`${prefix}-current`} autoComplete="current-password" minLength={8} maxLength={72} value={form.currentPassword} onChange={(event) => setForm((current) => ({ ...current, currentPassword: event.target.value }))} className="h-11 rounded-xl bg-white" /></div>
+      <div className="space-y-2"><Label htmlFor={`${prefix}-new`}>{t("New password")}</Label><PasswordInput id={`${prefix}-new`} autoComplete="new-password" minLength={8} maxLength={72} value={form.newPassword} onChange={(event) => setForm((current) => ({ ...current, newPassword: event.target.value }))} className="h-11 rounded-xl bg-white" /></div>
+      <div className="space-y-2"><Label htmlFor={`${prefix}-confirm`}>{t("Confirm new password")}</Label><PasswordInput id={`${prefix}-confirm`} autoComplete="new-password" minLength={8} maxLength={72} value={form.confirmPassword} onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))} className="h-11 rounded-xl bg-white" /></div>
     </div>
   );
 }

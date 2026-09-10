@@ -85,7 +85,7 @@ export async function GET(
           label: categoryLabels[category],
           ...categoryScores[category],
         })),
-        analysis: buildDetailedAnalysis(result),
+        analysis: buildDetailedAnalysis(result, "en", row.role),
         answers: stored.answerDetails,
       },
     },

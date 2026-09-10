@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/password-input";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -184,7 +185,7 @@ function ManagerLogin({ onSuccess }: { onSuccess: (session: StaffSession) => voi
         <CardContent className="pb-8 sm:px-8">
           <form onSubmit={login} className="space-y-5">
             <div className="space-y-2"><Label htmlFor="manager-name">{t("Username")}</Label><Input id="manager-name" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} className="h-12 rounded-xl" /></div>
-            <div className="space-y-2"><Label htmlFor="manager-password">{t("Password")}</Label><Input id="manager-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className="h-12 rounded-xl" /></div>
+            <div className="space-y-2"><Label htmlFor="manager-password">{t("Password")}</Label><PasswordInput id="manager-password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className="h-12 rounded-xl" /></div>
             {error && <div role="alert" className="flex gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{error}</div>}
             <Button type="submit" disabled={loading || password.length < 8 || !username.trim()} className="h-12 w-full rounded-xl bg-[#e7512f] text-base font-bold text-white shadow-[0_5px_0_#b7371d] hover:bg-[#d94625] active:translate-y-1 active:shadow-none">{loading ? <Loader2 className="size-4 animate-spin" /> : <LockKeyhole className="size-4" />} {t("Open secure workspace")}</Button>
           </form>
@@ -270,11 +271,11 @@ export function ManagerPortal() {
     return { passed, average, todayCount };
   }, [submissions]);
 
-  const dashboardCards: Array<{ Icon: LucideIcon; value: string | number; label: string; note: string }> = [
-    { Icon: Users, value: submissions.length, label: t("Total candidates"), note: t("All submitted assessments") },
-    { Icon: UserRoundCheck, value: stats.passed, label: t("Passed written test"), note: t("All minimums met") },
-    { Icon: TrendingUp, value: `${stats.average}%`, label: t("Average role fit"), note: t("Across current records") },
-    { Icon: CalendarDays, value: stats.todayCount, label: t("Submitted today"), note: t("Based on current device date") },
+  const dashboardCards: Array<{ Icon: LucideIcon; value: string | number; label: string }> = [
+    { Icon: Users, value: submissions.length, label: t("Total candidates") },
+    { Icon: UserRoundCheck, value: stats.passed, label: t("Passed written test") },
+    { Icon: TrendingUp, value: `${stats.average}%`, label: t("Average role fit") },
+    { Icon: CalendarDays, value: stats.todayCount, label: t("Submitted today") },
   ];
 
   async function openDetail(id: string) {
@@ -333,8 +334,8 @@ export function ManagerPortal() {
       {staff.role === "owner" && <OwnerManagerAccounts />}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {dashboardCards.map(({ Icon, value, label, note }) => (
-          <Card key={label} className="gap-0 border-slate-200 bg-white py-0 shadow-sm"><CardContent className="p-5"><div className="flex items-start justify-between"><div><p className="text-2xl font-black text-slate-950">{value}</p><p className="mt-1 text-sm font-bold text-slate-700">{label}</p><p className="mt-1 text-xs text-slate-400">{note}</p></div><Icon className="size-5 text-cyan-700" /></div></CardContent></Card>
+        {dashboardCards.map(({ Icon, value, label }) => (
+          <Card key={label} className="gap-0 border-slate-200 bg-white py-0 shadow-sm"><CardContent className="p-5"><div className="flex items-start justify-between"><div><p className="text-2xl font-black text-slate-950">{value}</p><p className="mt-1 text-sm font-bold text-slate-700">{label}</p></div><Icon className="size-5 text-cyan-700" /></div></CardContent></Card>
         ))}
       </section>
 
@@ -503,7 +504,7 @@ function CandidateDetail({
           </Card>
 
           {detail.analysis.psychologyProfile.length > 0 && <section>
-            <div className="mb-3 flex items-end justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><Brain className="size-5 text-violet-700" /> {t("Work psychology profile")}</h3><p className="mt-1 text-sm text-slate-500">{t("Six non-clinical work traits based on the first 30 responses.")}</p></div><Badge variant="outline" className="hidden border-violet-200 bg-violet-50 text-violet-800 sm:inline-flex">{t("30 psychology questions")}</Badge></div>
+            <div className="mb-3"><h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><Brain className="size-5 text-violet-700" /> {t("Work psychology profile")}</h3></div>
             <div className="grid gap-4 md:grid-cols-2">
               {detail.analysis.psychologyProfile.map((item) => <Card key={item.trait} className={`gap-0 py-0 ${item.band === "strong" ? "border-emerald-200 bg-emerald-50/50" : item.band === "develop" ? "border-amber-200 bg-amber-50/50" : "border-rose-200 bg-rose-50/60"}`}><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-slate-950">{item.label}</p><Badge variant="outline" className={`mt-2 ${item.band === "strong" ? "border-emerald-200 bg-white text-emerald-800" : item.band === "develop" ? "border-amber-200 bg-white text-amber-800" : "border-rose-200 bg-white text-rose-800"}`}>{item.bandLabel}</Badge></div><span className="text-2xl font-black text-slate-950">{item.percentage}%</span></div><Progress value={item.percentage} className={`mt-4 h-2 bg-white ${item.band === "strong" ? "[&_[data-slot=progress-indicator]]:bg-emerald-500" : item.band === "develop" ? "[&_[data-slot=progress-indicator]]:bg-amber-500" : "[&_[data-slot=progress-indicator]]:bg-rose-500"}`} /><p className="mt-4 text-sm leading-6 text-slate-700">{item.interpretation}</p><div className="mt-3 rounded-xl border border-white bg-white/80 p-3 text-xs leading-5 text-slate-600"><strong>{t("Manager follow-up:")}</strong> {item.managerFollowUp}</div></CardContent></Card>)}
             </div>
@@ -523,6 +524,8 @@ function CandidateDetail({
           </section>
 
           <Card className="gap-0 border-violet-200 bg-gradient-to-br from-white to-violet-50/70 py-0"><CardContent className="p-5 sm:p-6"><div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="font-black text-slate-950">{t("If hired: improvement plan")}</h3><p className="mt-1 text-sm text-slate-500">{t("Prioritized coaching actions and estimated time to reach the stated success check.")}</p></div><Badge className="w-fit bg-violet-100 text-violet-800 hover:bg-violet-100">{t("Manager-adjusted timeline")}</Badge></div><div className="mt-5 space-y-4">{detail.analysis.developmentPlan.map((plan) => <div key={`${plan.priority}-${plan.area}`} className="rounded-2xl border border-violet-100 bg-white p-4 shadow-sm sm:p-5"><div className="flex flex-wrap items-center gap-3"><span className="flex size-8 items-center justify-center rounded-lg bg-violet-700 text-xs font-black text-white">{plan.priority}</span><p className="font-black text-slate-900">{plan.area}</p>{plan.currentPercentage !== null && <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700">{t("Current {percentage}%", { percentage: plan.currentPercentage })}</Badge>}<Badge variant="outline" className="ml-auto border-violet-200 bg-violet-50 text-violet-800"><Clock3 className="mr-1 size-3" /> {plan.estimatedTimeline}</Badge></div><div className="mt-4 grid gap-3 text-sm leading-6 md:grid-cols-2"><div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-black uppercase tracking-[.1em] text-slate-400">{t("Action")}</p><p className="mt-1 text-slate-700">{plan.action}</p></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-xs font-black uppercase tracking-[.1em] text-emerald-700">{t("Success check")}</p><p className="mt-1 text-emerald-950/80">{plan.successMeasure}</p></div></div></div>)}</div><p className="mt-5 rounded-xl border border-violet-100 bg-violet-50 p-3 text-xs leading-5 text-violet-900/80">{detail.analysis.developmentNote}</p></CardContent></Card>
+
+          {detail.analysis.alternativePositions.length > 0 && <Card className="gap-0 border-cyan-200 bg-cyan-50/60 py-0"><CardContent className="p-5 sm:p-6"><h3 className="font-black text-cyan-950">{t("Alternative positions to explore")}</h3><div className="mt-4 grid gap-3 md:grid-cols-3">{detail.analysis.alternativePositions.map((position) => <div key={position.role} className="rounded-xl border border-cyan-100 bg-white p-4 shadow-sm"><p className="font-black text-slate-950">{position.label}</p><p className="mt-2 text-sm leading-6 text-slate-600">{position.reason}</p></div>)}</div><p className="mt-4 text-xs leading-5 text-cyan-900/80">{t("Alternative roles are exploratory, not automatic placement decisions.")}</p></CardContent></Card>}
 
           {eligibilityNotes.length > 0 && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5"><h3 className="flex items-center gap-2 font-black text-amber-950"><AlertTriangle className="size-5" /> {t("Separate eligibility verification needed")}</h3><ul className="mt-3 space-y-2 text-sm text-amber-900">{eligibilityNotes.map((note) => <li key={note}>• {note}</li>)}</ul><p className="mt-3 text-xs leading-5 text-amber-800">{t("These self-reported items are shown separately and are not included in the 1–100% assessment score.")}</p></div>}
 

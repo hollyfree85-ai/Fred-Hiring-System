@@ -1,14 +1,53 @@
 import type { SubmissionDetail } from "@/lib/client-types";
 import { translate, type AppLocale } from "@/lib/i18n";
+import type { QuestionCategory } from "@/lib/question-bank";
 
-type ReportLine = {
+type Tone = "default" | "muted" | "accent" | "success" | "warning";
+
+type CardSection = {
+  label?: string;
+  labelMaxLines?: number;
   text: string;
+  tone?: Tone;
+  maxLines?: number;
+};
+
+type ReportCard = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  title: string;
+  tone?: Tone;
+  metric?: string;
+  sections: CardSection[];
+};
+
+type ReportPage = {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  cards: ReportCard[];
+};
+
+type TextRow = {
+  text: string;
+  x: number;
+  y: number;
   size: number;
-  leading: number;
   bold?: boolean;
-  indent?: number;
-  gapAfter?: number;
-  tone?: "default" | "muted" | "accent" | "success" | "warning";
+  tone?: Tone;
+};
+
+const PAGE_WIDTH = 612;
+const PAGE_HEIGHT = 792;
+const REPORT_PAGE_COUNT = 3;
+
+const reportCategoryLabels: Record<QuestionCategory, string> = {
+  work_style: "Integrity & reliability",
+  communication: "Teamwork & service",
+  problem_solving: "Emotional control & adaptability",
+  technical: "Technical knowledge",
 };
 
 const outcomeText = (outcome: SubmissionDetail["outcome"], locale: AppLocale) =>
@@ -50,373 +89,298 @@ function pdfValue(value: string, locale: AppLocale) {
   return `<${bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("")}>`;
 }
 
-function wrapText(value: string, maxCharacters: number, locale: AppLocale) {
-  const text = isCjkLocale(locale) ? value.replace(/\s+/g, " ").trim() : ascii(value);
-  if (!text) return ["Not provided"];
+function cleanText(value: string, locale: AppLocale) {
+  return isCjkLocale(locale) ? value.replace(/\s+/g, " ").trim() : ascii(value);
+}
+
+function truncateLine(value: string) {
+  if (value.length <= 3) return value;
+  return `${value.slice(0, -3).trimEnd()}...`;
+}
+
+function wrapText(value: string, maxCharacters: number, maxLines: number, locale: AppLocale) {
+  const text = cleanText(value, locale) || translate(locale, "Not provided");
+  let lines: string[] = [];
   if (isCjkLocale(locale)) {
     const characters = Array.from(text);
-    return Array.from({ length: Math.ceil(characters.length / maxCharacters) }, (_, index) => (
+    lines = Array.from({ length: Math.ceil(characters.length / maxCharacters) }, (_, index) => (
       characters.slice(index * maxCharacters, (index + 1) * maxCharacters).join("")
     ));
-  }
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    if (!current) {
-      current = word;
-    } else if (`${current} ${word}`.length <= maxCharacters) {
-      current += ` ${word}`;
-    } else {
-      lines.push(current);
-      current = word;
+  } else {
+    const words = text.split(" ");
+    let current = "";
+    for (const word of words) {
+      if (!current) current = word;
+      else if (`${current} ${word}`.length <= maxCharacters) current += ` ${word}`;
+      else {
+        lines.push(current);
+        current = word;
+      }
     }
+    if (current) lines.push(current);
   }
-  if (current) lines.push(current);
-  return lines;
+  if (lines.length <= maxLines) return lines;
+  return [...lines.slice(0, maxLines - 1), truncateLine(lines[maxLines - 1])];
 }
 
-function lineWidthFor(size: number, indent = 0, locale: AppLocale = "en") {
-  const usablePoints = 512 - indent;
-  return Math.max(isCjkLocale(locale) ? 18 : 36, Math.floor(usablePoints / (size * (isCjkLocale(locale) ? 1 : 0.51))));
+function maxCharacters(width: number, size: number, locale: AppLocale) {
+  const characterWidth = size * (isCjkLocale(locale) ? 1 : 0.52);
+  return Math.max(isCjkLocale(locale) ? 8 : 14, Math.floor(width / characterWidth));
 }
 
-function addWrapped(
-  rows: ReportLine[],
-  text: string,
-  options: Omit<ReportLine, "text">,
-  locale: AppLocale,
-) {
-  const lines = wrapText(text, lineWidthFor(options.size, options.indent, locale), locale);
-  lines.forEach((line, index) => rows.push({
-    ...options,
+function toneFill(tone: Tone = "default") {
+  switch (tone) {
+    case "success": return { canvas: "#eaf8f0", vector: "0.92 0.98 0.95 rg", border: "#a8ddbe", vectorBorder: "0.66 0.87 0.75 RG" };
+    case "warning": return { canvas: "#fff2eb", vector: "1 0.95 0.92 rg", border: "#f0b9a7", vectorBorder: "0.94 0.73 0.65 RG" };
+    case "accent": return { canvas: "#e9f8fa", vector: "0.91 0.97 0.98 rg", border: "#a9dce2", vectorBorder: "0.66 0.86 0.89 RG" };
+    case "muted": return { canvas: "#f2f5f7", vector: "0.95 0.96 0.97 rg", border: "#d6dde1", vectorBorder: "0.84 0.87 0.88 RG" };
+    default: return { canvas: "#ffffff", vector: "1 1 1 rg", border: "#d7e0e4", vectorBorder: "0.84 0.88 0.89 RG" };
+  }
+}
+
+function toneText(tone: Tone = "default") {
+  switch (tone) {
+    case "success": return { canvas: "#0d6e47", vector: "0.05 0.43 0.28 rg" };
+    case "warning": return { canvas: "#a43d26", vector: "0.64 0.24 0.15 rg" };
+    case "accent": return { canvas: "#087080", vector: "0.03 0.44 0.50 rg" };
+    case "muted": return { canvas: "#5d6971", vector: "0.36 0.41 0.44 rg" };
+    default: return { canvas: "#101b22", vector: "0.06 0.11 0.13 rg" };
+  }
+}
+
+function cardTextRows(card: ReportCard, locale: AppLocale) {
+  const rows: TextRow[] = [];
+  const innerWidth = card.width - 32;
+  const titleWidth = card.metric ? innerWidth - 90 : innerWidth;
+  const titleLines = wrapText(card.title, maxCharacters(titleWidth, 14, locale), 2, locale);
+  titleLines.forEach((line, index) => rows.push({
     text: line,
-    gapAfter: index === lines.length - 1 ? options.gapAfter : 0,
+    x: card.x + 16,
+    y: card.y + 26 + index * 17,
+    size: 14,
+    bold: true,
+    tone: card.tone || "default",
   }));
-}
-
-function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
-  const rows: ReportLine[] = [];
-  const t = (source: string, values: Record<string, string | number> = {}) => translate(locale, source, values);
-  const bio = detail.biodata;
-  const heading = (text: string) => addWrapped(rows, isCjkLocale(locale) ? text : text.toUpperCase(), {
-    size: 16,
-    leading: 23,
-    bold: true,
-    tone: "accent",
-    gapAfter: 5,
-  }, locale);
-  const item = (label: string, value: string) => {
-    addWrapped(rows, `${label}: ${value || t("Not provided")}`, {
-      size: 14,
-      leading: 20,
-      gapAfter: 3,
-    }, locale);
-  };
-  const bullet = (value: string, tone: ReportLine["tone"] = "default") => {
-    addWrapped(rows, `- ${value}`, {
-      size: 14,
-      leading: 20,
-      indent: 12,
-      tone,
-      gapAfter: 2,
-    }, locale);
-  };
-  const spacer = (height = 8) => rows.push({ text: "", size: 8, leading: height });
-
-  addWrapped(rows, "FRED HIRING SYSTEM", {
-    size: 12,
-    leading: 17,
-    bold: true,
-    tone: "accent",
-    gapAfter: 4,
-  }, locale);
-  addWrapped(rows, t("Candidate Assessment Report"), {
-    size: 26,
-    leading: 31,
-    bold: true,
-    gapAfter: 3,
-  }, locale);
-  addWrapped(rows, t("CONFIDENTIAL - Authorized manager use only"), {
-    size: 11,
-    leading: 16,
-    bold: true,
-    tone: "warning",
-    gapAfter: 12,
-  }, locale);
-
-  heading(t("Candidate & result"));
-  item(t("Candidate"), detail.candidateName);
-  item(t("Phone"), detail.phone);
-  item(t("Email"), bio.email || t("Not provided"));
-  item(t("Restaurant type"), detail.restaurantConceptLabel);
-  item(t("Job family"), detail.jobFamilyLabel);
-  item(t("Position"), detail.roleLabel);
-  item(t("Experience level"), detail.experienceLevelLabel);
-  item(t("Submitted"), detail.submittedAt);
-  item(t("Completion time"), t("{minutes} minutes", { minutes: Math.max(0, Math.round(detail.durationSeconds / 60)) }));
-  item(t("Position-fit score"), `${detail.fitPercentage}%`);
-  item(t("Written result"), outcomeText(detail.outcome, locale));
-  item(t("Critical zero-point items"), String(detail.criticalMisses));
-  spacer();
-
-  heading(t("Assessment conclusion"));
-  addWrapped(rows, detail.analysis.summary, {
-    size: 14,
-    leading: 20,
-    gapAfter: 8,
-  }, locale);
-
-  heading(t("Hiring recommendation"));
-  item(t("Position-fit score"), `${detail.analysis.hiringRecommendation.fitPercentage}%`);
-  item(t("Recommendation"), detail.analysis.hiringRecommendation.label);
-  addWrapped(rows, detail.analysis.hiringRecommendation.rationale, {
-    size: 14,
-    leading: 20,
-    tone: detail.analysis.hiringRecommendation.status === "recommended" ? "success" : "warning",
-    gapAfter: 8,
-  }, locale);
-
-  if (detail.analysis.psychologyProfile.length) {
-    heading(t("Work psychology profile"));
-    addWrapped(rows, t("Six non-clinical work traits based on the first 30 responses."), {
-      size: 14,
-      leading: 20,
-      tone: "muted",
-      gapAfter: 6,
-    }, locale);
-    detail.analysis.psychologyProfile.forEach((trait) => {
-      addWrapped(rows, `${trait.label} — ${trait.percentage}% · ${trait.bandLabel}`, {
-        size: 14,
-        leading: 20,
-        bold: true,
-        tone: trait.band === "strong" ? "success" : "warning",
-        gapAfter: 2,
-      }, locale);
-      addWrapped(rows, trait.interpretation, {
-        size: 14,
-        leading: 20,
-        gapAfter: 2,
-      }, locale);
-      bullet(`${t("Manager follow-up:")} ${trait.managerFollowUp}`, "accent");
-      spacer(4);
+  if (card.metric) {
+    rows.push({
+      text: card.metric,
+      x: card.x + card.width - 72,
+      y: card.y + 29,
+      size: 22,
+      bold: true,
+      tone: card.tone || "default",
     });
-    addWrapped(rows, t("This profile describes job-related response patterns. It is not a clinical test, personality diagnosis, or substitute for a structured interview."), {
-      size: 14,
-      leading: 20,
-      tone: "warning",
-      gapAfter: 8,
-    }, locale);
   }
 
-  heading(t("SWOT hiring analysis"));
-  ([
-    [t("Strengths"), detail.analysis.swot.strengths, "success"],
-    [t("Weaknesses"), detail.analysis.swot.weaknesses, "warning"],
-    [t("Opportunities if hired"), detail.analysis.swot.opportunities, "accent"],
-    [t("Threats / hiring risks"), detail.analysis.swot.threats, "warning"],
-  ] as const).forEach(([label, entries, tone]) => {
-    addWrapped(rows, label, {
-      size: 14,
-      leading: 20,
-      bold: true,
-      tone,
-      gapAfter: 2,
-    }, locale);
-    entries.forEach((entry) => bullet(`${entry.title}: ${entry.detail}`, tone));
-    spacer(3);
-  });
-
-  heading(t("If hired - improvement plan"));
-  detail.analysis.developmentPlan.forEach((plan) => {
-    addWrapped(rows, `${plan.priority}. ${plan.area}${plan.currentPercentage === null ? "" : ` - ${t("current score {percentage}%", { percentage: plan.currentPercentage })}`}`, {
-      size: 14,
-      leading: 20,
-      bold: true,
-      tone: "accent",
-      gapAfter: 1,
-    }, locale);
-    bullet(`${t("Action")}: ${plan.action}`);
-    bullet(`${t("Estimated time")}: ${plan.estimatedTimeline}`, "warning");
-    bullet(`${t("Success check")}: ${plan.successMeasure}`, "success");
-    spacer(3);
-  }, locale);
-  addWrapped(rows, detail.analysis.developmentNote, {
-    size: 14,
-    leading: 20,
-    tone: "muted",
-    gapAfter: 8,
-  }, locale);
-
-  heading(t("Section evidence"));
-  detail.categoryScores.forEach((score) => {
-    item(score.label, t("{percentage}% ({score} of {max} points)", { percentage: score.percentage, score: score.score, max: score.max }));
-  });
-  spacer();
-
-  heading(t("Decision criteria"));
-  addWrapped(rows, detail.analysis.methodology, {
-    size: 14,
-    leading: 20,
-    gapAfter: 5,
-  }, locale);
-  if (detail.analysis.failedRules.length) {
-    detail.analysis.failedRules.forEach((rule) => bullet(rule, "warning"));
-  } else {
-    bullet(t("All written-assessment minimums were met."), "success");
+  let cursor = card.y + Math.max(52, 35 + titleLines.length * 17);
+  const bottom = card.y + card.height - 13;
+  for (const section of card.sections) {
+    if (cursor >= bottom) break;
+    if (section.label) {
+      const labelLines = wrapText(
+        isCjkLocale(locale) ? section.label : section.label.toUpperCase(),
+        maxCharacters(innerWidth, 10, locale),
+        section.labelMaxLines || 1,
+        locale,
+      );
+      labelLines.forEach((line) => {
+        rows.push({ text: line, x: card.x + 16, y: cursor, size: 10, bold: true, tone: section.tone || "muted" });
+        cursor += 14;
+      });
+      cursor += 4;
+    }
+    const availableLines = Math.max(1, Math.floor((bottom - cursor) / 18) + 1);
+    const limit = Math.min(section.maxLines || 2, availableLines);
+    const lines = wrapText(section.text, maxCharacters(innerWidth, 14, locale), limit, locale);
+    lines.forEach((line) => {
+      rows.push({ text: line, x: card.x + 16, y: cursor, size: 14, tone: section.tone || "default" });
+      cursor += 18;
+    });
+    cursor += 8;
   }
-  spacer();
-
-  heading(t("Demonstrated strengths"));
-  if (detail.analysis.strengths.length) {
-    detail.analysis.strengths.forEach((entry) =>
-      bullet(`${entry.label} (${entry.percentage}%): ${entry.statement}`, "success"),
-    );
-  } else {
-    bullet(t("No section reached the 75% strength marker."));
-  }
-  spacer();
-
-  heading(t("Priority review areas"));
-  if (detail.analysis.priorities.length) {
-    detail.analysis.priorities.forEach((entry) =>
-      bullet(`${entry.label} (${entry.percentage}%): ${entry.statement}`, "warning"),
-    );
-  } else {
-    bullet(t("No major section priority was identified; verify technical knowledge in interview."));
-  }
-  spacer();
-
-  heading(t("Structured interview follow-up"));
-  detail.analysis.interviewPrompts.forEach((prompt, index) => bullet(`${index + 1}. ${prompt}`));
-  spacer();
-
-  heading(t("Biodata"));
-  item(t("City / state"), bio.cityState);
-  item(t("Available start"), bio.availableStartDate);
-  item(t("Restaurant experience"), t(bio.restaurantExperience));
-  item(t("Most recent employer"), bio.mostRecentEmployer);
-  item(t("Most recent role"), bio.mostRecentRole);
-  item(t("Reason for leaving / searching"), bio.reasonLeaving);
-  item(t("Customer-facing English"), t(bio.englishComfort));
-  item(t("Available days"), bio.availableDays.map((value) => t(value)).join(", "));
-  item(t("Available shifts"), bio.availableShifts.map((value) => t(value)).join(", "));
-  item(t("Desired hours"), t(bio.hoursDesired));
-  item(t("U.S. work authorization self-report"), t(bio.authorizedToWork ? "Yes" : "No"));
-  item(t("Minimum-age self-report"), t(bio.meetsAgeRequirement ? "Yes" : "No"));
-  item(t("Alcohol-service training"), t(bio.alcoholTraining));
-  item(t("Why join"), bio.whyJoin);
-  item(t("Service example"), bio.serviceExample);
-  spacer();
-
-  heading(t("Priority answer evidence"));
-  detail.analysis.reviewItems.forEach((answer) => {
-    addWrapped(rows, `${answer.questionId} - ${answer.categoryLabel} - ${answer.points}/${answer.maxPoints}${answer.isCritical ? ` - ${t("CRITICAL")}` : ""}`, {
-      size: 14,
-      leading: 20,
-      bold: true,
-      tone: answer.isCritical && answer.points === 0 ? "warning" : "default",
-      gapAfter: 1,
-    }, locale);
-    bullet(`${t("Question")}: ${answer.prompt}`);
-    bullet(`${t("Selected")}: ${answer.selectedText}`);
-    bullet(`${t("Manager lens")}: ${answer.reviewNote}`, "muted");
-    spacer(5);
-  });
-
-  heading(t("Complete answer appendix - all 75 items"));
-  detail.answers.forEach((answer) => {
-    addWrapped(rows, `${answer.questionId} - ${answer.categoryLabel} - ${answer.points}/${answer.maxPoints}${answer.isCritical ? ` - ${t("CRITICAL")}` : ""}`, {
-      size: 14,
-      leading: 20,
-      bold: true,
-      tone: answer.isCritical && answer.points === 0 ? "warning" : "default",
-      gapAfter: 1,
-    }, locale);
-    bullet(`${t("Question")}: ${answer.prompt}`);
-    bullet(`${t("Selected")}: ${answer.selectedText}`);
-    bullet(`${t("Manager lens")}: ${answer.reviewNote}`, "muted");
-    spacer(4);
-  });
-
-  heading(t("Use limitation"));
-  addWrapped(rows, detail.analysis.limitation, {
-    size: 14,
-    leading: 20,
-    tone: "warning",
-    gapAfter: 4,
-  }, locale);
-  addWrapped(rows, t("This is a written-assessment aid, not a final hiring decision or legal advice. Apply consistent, job-related human review and reasonable-accommodation procedures."), {
-    size: 14,
-    leading: 20,
-    tone: "muted",
-  }, locale);
-
   return rows;
 }
 
-function colorCommand(tone: ReportLine["tone"]) {
-  switch (tone) {
-    case "accent": return "0.03 0.42 0.50 rg";
-    case "success": return "0.05 0.43 0.28 rg";
-    case "warning": return "0.65 0.20 0.12 rg";
-    case "muted": return "0.34 0.39 0.43 rg";
-    default: return "0.06 0.10 0.13 rg";
-  }
+function joinAnalysisPoints(points: Array<{ title: string; detail: string }>, locale: AppLocale, fallback: string) {
+  if (!points.length) return fallback;
+  const point = points[0];
+  return `${point.title}: ${point.detail}`;
 }
 
-function canvasColor(tone: ReportLine["tone"]) {
-  switch (tone) {
-    case "accent": return "#087080";
-    case "success": return "#0d6e47";
-    case "warning": return "#a6331f";
-    case "muted": return "#57646e";
-    default: return "#0f1a21";
-  }
+function buildReportPages(detail: SubmissionDetail, locale: AppLocale): ReportPage[] {
+  const t = (source: string, values: Record<string, string | number> = {}) => translate(locale, source, values);
+  const profile = detail.analysis.psychologyProfile.slice(0, 6);
+  const traitCards = profile.map((trait, index): ReportCard => ({
+    x: index % 2 === 0 ? 44 : 310,
+    y: 154 + Math.floor(index / 2) * 184,
+    width: 258,
+    height: 174,
+    title: trait.label,
+    metric: `${trait.percentage}%`,
+    tone: trait.band === "strong" ? "success" : trait.band === "develop" ? "accent" : "warning",
+    sections: [
+      { label: trait.bandLabel, text: trait.interpretation, maxLines: 5 },
+    ],
+  }));
+
+  const minimums = [65, 65, 70, 70];
+  const categoryCards = detail.categoryScores.slice(0, 4).map((score, index): ReportCard => ({
+    x: index % 2 === 0 ? 44 : 311,
+    y: 404 + Math.floor(index / 2) * 72,
+    width: 257,
+    height: 60,
+    title: t(reportCategoryLabels[score.category]),
+    metric: `${score.percentage}%`,
+    tone: score.percentage >= minimums[index] ? "success" : "warning",
+    sections: [{
+      text: score.percentage >= minimums[index] ? t("Minimum met") : t("Below minimum"),
+      maxLines: 1,
+    }],
+  }));
+
+  const strongest = detail.analysis.strengths[0];
+  const priority = detail.analysis.priorities[0];
+  const strengthSections: CardSection[] = strongest
+    ? [{
+        label: `${t(reportCategoryLabels[strongest.category])} · ${strongest.percentage}%`,
+        text: strongest.statement,
+        maxLines: 4,
+      }]
+    : [{ text: t("No section reached the strength marker; confirm capability in a structured interview."), maxLines: 4 }];
+  const prioritySections: CardSection[] = priority
+    ? [{
+        label: `${t(reportCategoryLabels[priority.category])} · ${priority.percentage}%`,
+        text: priority.statement,
+        maxLines: 4,
+      }]
+    : [{ text: t("No major section priority was identified; verify technical knowledge in the interview."), maxLines: 4 }];
+
+  const alternatives = detail.analysis.alternativePositions || [];
+  const alternativeSections: CardSection[] = alternatives.length
+    ? [
+        {
+          text: t("These adjacent roles may better match the current evidence. Each requires a separate role-specific interview or skills check."),
+          maxLines: 3,
+          tone: "muted",
+        },
+        ...alternatives.slice(0, 3).map((position) => ({
+          label: position.label,
+          text: t("Separate role-specific verification required."),
+          maxLines: 1,
+        })),
+      ]
+    : [{
+        label: t("Recommended path"),
+        text: t("The requested position remains the recommended path. Continue with the standard structured interview and reference process."),
+        maxLines: 4,
+        tone: "success",
+      }];
+
+  const developmentSections: CardSection[] = detail.analysis.developmentPlan.slice(0, 2).map((plan) => ({
+    label: `${plan.priority}. ${plan.area}`,
+    labelMaxLines: 2,
+    text: `${plan.estimatedTimeline}: ${plan.action}`,
+    maxLines: 3,
+  }));
+
+  return [
+    {
+      eyebrow: t("PAGE 1 · PERSONALITY"),
+      title: t("Candidate personality profile"),
+      subtitle: `${detail.candidateName} · ${detail.roleLabel} · ${t("Job-related, non-clinical work traits")}`,
+      cards: traitCards,
+    },
+    {
+      eyebrow: t("PAGE 2 · JOB FIT"),
+      title: t("Fit with the requested position"),
+      subtitle: `${detail.candidateName} · ${detail.roleLabel} · ${outcomeText(detail.outcome, locale)}`,
+      cards: [
+        {
+          x: 44, y: 154, width: 524, height: 140,
+          title: t("Hiring recommendation"),
+          metric: `${detail.fitPercentage}%`,
+          tone: detail.analysis.hiringRecommendation.status === "recommended" ? "success" : "warning",
+          sections: [
+            { label: t("Recommendation"), text: detail.analysis.hiringRecommendation.label, maxLines: 1 },
+            { text: detail.analysis.hiringRecommendation.rationale, maxLines: 3 },
+          ],
+        },
+        { x: 44, y: 306, width: 168, height: 86, title: t("Requested position"), tone: "accent", sections: [{ text: detail.roleLabel, maxLines: 2 }] },
+        { x: 222, y: 306, width: 168, height: 86, title: t("Restaurant type"), tone: "accent", sections: [{ text: detail.restaurantConceptLabel, maxLines: 2 }] },
+        { x: 400, y: 306, width: 168, height: 86, title: t("Experience level"), tone: "accent", sections: [{ text: detail.experienceLevelLabel, maxLines: 2 }] },
+        ...categoryCards,
+        {
+          x: 44, y: 548, width: 257, height: 164,
+          title: t("Evidence supporting fit"),
+          tone: "success",
+          sections: strengthSections,
+        },
+        {
+          x: 311, y: 548, width: 257, height: 164,
+          title: t("Evidence requiring verification"),
+          tone: priority ? "warning" : "muted",
+          sections: prioritySections,
+        },
+      ],
+    },
+    {
+      eyebrow: t("PAGE 3 · DECISION SUPPORT"),
+      title: t("SWOT, development & next-best roles"),
+      subtitle: t("Practical guidance for a consistent, job-related manager review"),
+      cards: [
+        {
+          x: 44, y: 154, width: 257, height: 139,
+          title: t("Strengths"), tone: "success",
+          sections: [{ text: joinAnalysisPoints(detail.analysis.swot.strengths, locale, t("No verified strength signal.")), maxLines: 4 }],
+        },
+        {
+          x: 311, y: 154, width: 257, height: 139,
+          title: t("Weaknesses"), tone: "warning",
+          sections: [{ text: joinAnalysisPoints(detail.analysis.swot.weaknesses, locale, t("No major weakness identified.")), maxLines: 4 }],
+        },
+        {
+          x: 44, y: 303, width: 257, height: 139,
+          title: t("Opportunities"), tone: "accent",
+          sections: [{ text: joinAnalysisPoints(detail.analysis.swot.opportunities, locale, t("Continue structured development.")), maxLines: 4 }],
+        },
+        {
+          x: 311, y: 303, width: 257, height: 139,
+          title: t("Threats / hiring risks"), tone: "warning",
+          sections: [{ text: joinAnalysisPoints(detail.analysis.swot.threats, locale, t("Verify performance under live restaurant conditions.")), maxLines: 4 }],
+        },
+        {
+          x: 44, y: 454, width: 257, height: 258,
+          title: t("What to develop"), tone: "accent",
+          sections: developmentSections,
+        },
+        {
+          x: 311, y: 454, width: 257, height: 258,
+          title: alternatives.length ? t("Alternative positions to explore") : t("Position recommendation"),
+          tone: alternatives.length ? "warning" : "success",
+          sections: alternativeSections,
+        },
+      ],
+    },
+  ];
 }
 
-function paginate(rows: ReportLine[]) {
-  const pages: ReportLine[][] = [[]];
-  let y = 714;
-  for (const row of rows) {
-    const required = row.leading + (row.gapAfter || 0);
-    if (y - required < 58 && pages[pages.length - 1].length) {
-      pages.push([]);
-      y = 714;
-    }
-    pages[pages.length - 1].push(row);
-    y -= required;
-  }
-  return pages;
+function pageHeaderRows(page: ReportPage, locale: AppLocale) {
+  const rows: TextRow[] = [];
+  rows.push({ text: page.eyebrow, x: 44, y: 83, size: 10, bold: true, tone: "accent" });
+  wrapText(page.title, maxCharacters(524, 24, locale), 1, locale).forEach((text) => {
+    rows.push({ text, x: 44, y: 113, size: 24, bold: true });
+  });
+  wrapText(page.subtitle, maxCharacters(524, 14, locale), 1, locale).forEach((text) => {
+    rows.push({ text, x: 44, y: 137, size: 14, tone: "muted" });
+  });
+  return rows;
 }
 
-function isSectionHeading(row: ReportLine) {
-  return Boolean(row.bold && row.tone === "accent" && row.size >= 16);
+function vectorY(topBaseline: number) {
+  return PAGE_HEIGHT - topBaseline;
 }
 
-function vectorSurface(row: ReportLine) {
-  if (isSectionHeading(row)) return "0.03 0.42 0.50 rg";
-  switch (row.tone) {
-    case "success": return "0.91 0.98 0.94 rg";
-    case "warning": return "1 0.95 0.91 rg";
-    case "accent": return "0.91 0.97 0.98 rg";
-    case "muted": return "0.95 0.96 0.97 rg";
-    default: return "1 1 1 rg";
-  }
-}
-
-function canvasSurface(row: ReportLine) {
-  if (isSectionHeading(row)) return "#087080";
-  switch (row.tone) {
-    case "success": return "#e8f8ee";
-    case "warning": return "#fff1e8";
-    case "accent": return "#e8f7fa";
-    case "muted": return "#f1f4f6";
-    default: return "#ffffff";
-  }
-}
-
-function pageStream(page: ReportLine[], pageNumber: number, totalPages: number, candidate: string, locale: AppLocale) {
+function pageStream(page: ReportPage, pageNumber: number, candidate: string, locale: AppLocale) {
   const bodyFont = isCjkLocale(locale) ? "F3" : "F1";
   const boldFont = isCjkLocale(locale) ? "F3" : "F2";
   const commands: string[] = [
@@ -428,26 +392,34 @@ function pageStream(page: ReportLine[], pageNumber: number, totalPages: number, 
     "0.72 0.86 0.89 rg",
     `BT /${bodyFont} 8 Tf 445 758 Td ${pdfValue(translate(locale, "Confidential report"), locale)} Tj ET`,
   ];
-  let y = 714;
-  page.forEach((row) => {
-    if (row.text) {
-      const heading = isSectionHeading(row);
-      const rectangleY = y - row.leading + 2;
-      const rectangleHeight = row.leading + 7;
-      commands.push(
-        vectorSurface(row),
-        `44 ${rectangleY} 524 ${rectangleHeight} re f`,
-        heading ? "1 1 1 rg" : colorCommand(row.tone),
-        `BT /${row.bold ? boldFont : bodyFont} ${row.size} Tf 1 0 0 1 ${56 + (row.indent || 0)} ${y} Tm ${pdfValue(row.text, locale)} Tj ET`,
-      );
-    }
-    y -= row.leading + (row.gapAfter || 0);
+
+  const drawText = (row: TextRow) => {
+    commands.push(
+      toneText(row.tone).vector,
+      `BT /${row.bold ? boldFont : bodyFont} ${row.size} Tf 1 0 0 1 ${row.x} ${vectorY(row.y)} Tm ${pdfValue(row.text, locale)} Tj ET`,
+    );
+  };
+
+  pageHeaderRows(page, locale).forEach(drawText);
+  page.cards.forEach((card) => {
+    const fill = toneFill(card.tone);
+    const rectangleY = PAGE_HEIGHT - card.y - card.height;
+    commands.push(
+      fill.vector,
+      fill.vectorBorder,
+      "0.8 w",
+      `${card.x} ${rectangleY} ${card.width} ${card.height} re B`,
+      toneText(card.tone).vector,
+      `${card.x} ${PAGE_HEIGHT - card.y - 4} ${card.width} 4 re f`,
+    );
+    cardTextRows(card, locale).forEach(drawText);
   });
+
   commands.push(
     "0.03 0.12 0.18 rg 0 0 612 44 re f",
     "0.78 0.86 0.88 rg",
     `BT /${bodyFont} 9 Tf 50 18 Td ${pdfValue(`${translate(locale, "Confidential")} - ${candidate}`, locale)} Tj ET`,
-    `BT /${boldFont} 9 Tf 520 18 Td ${pdfValue(`${pageNumber} / ${totalPages}`, locale)} Tj ET`,
+    `BT /${boldFont} 9 Tf 520 18 Td ${pdfValue(`${pageNumber} / ${REPORT_PAGE_COUNT}`, locale)} Tj ET`,
   );
   return `${commands.join("\n")}\n`;
 }
@@ -461,13 +433,13 @@ export function candidateReportFilename(detail: SubmissionDetail) {
 }
 
 function createVectorCandidateReportPdf(detail: SubmissionDetail, locale: AppLocale) {
-  const pages = paginate(buildReportLines(detail, locale));
+  const pages = buildReportPages(detail, locale);
   const objects: string[] = [];
   const firstPageObject = 7;
   const pageRefs = pages.map((_, index) => `${firstPageObject + index * 2} 0 R`).join(" ");
 
   objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
-  objects[2] = `<< /Type /Pages /Kids [${pageRefs}] /Count ${pages.length} >>`;
+  objects[2] = `<< /Type /Pages /Kids [${pageRefs}] /Count ${REPORT_PAGE_COUNT} >>`;
   objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
   objects[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
   const cjkFont = locale === "zh-TW" ? "MSung-Light" : "STSong-Light";
@@ -479,25 +451,23 @@ function createVectorCandidateReportPdf(detail: SubmissionDetail, locale: AppLoc
   pages.forEach((page, index) => {
     const pageObject = firstPageObject + index * 2;
     const contentObject = pageObject + 1;
-    const stream = pageStream(page, index + 1, pages.length, detail.candidateName, locale);
+    const stream = pageStream(page, index + 1, detail.candidateName, locale);
     objects[pageObject] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents ${contentObject} 0 R >>`;
     objects[contentObject] = `<< /Length ${stream.length} >>\nstream\n${stream}endstream`;
   });
 
-  let pdf = "%PDF-1.4\n% Fred Hiring System candidate report\n";
+  let pdf = "%PDF-1.4\n% Fred Hiring System three-page candidate report\n";
   const offsets: number[] = [0];
   for (let index = 1; index < objects.length; index += 1) {
     offsets[index] = pdf.length;
     pdf += `${index} 0 obj\n${objects[index]}\nendobj\n`;
   }
   const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length}\n`;
-  pdf += "0000000000 65535 f \n";
+  pdf += `xref\n0 ${objects.length}\n0000000000 65535 f \n`;
   for (let index = 1; index < objects.length; index += 1) {
     pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
   }
   pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
   return new Blob([pdf], { type: "application/pdf" });
 }
 
@@ -509,63 +479,77 @@ function base64Bytes(value: string) {
 }
 
 function createRasterCandidateReportPdf(detail: SubmissionDetail, locale: AppLocale) {
-  const pages = paginate(buildReportLines(detail, locale));
+  const pages = buildReportPages(detail, locale);
   const scale = 2;
   const canvas = document.createElement("canvas");
-  canvas.width = 612 * scale;
-  canvas.height = 792 * scale;
+  canvas.width = PAGE_WIDTH * scale;
+  canvas.height = PAGE_HEIGHT * scale;
   const context = canvas.getContext("2d");
   if (!context) return createVectorCandidateReportPdf(detail, locale);
 
+  const fontFamily = "Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif";
   const pageImages = pages.map((page, pageIndex) => {
     context.setTransform(scale, 0, 0, scale, 0, 0);
     context.fillStyle = "#f4f7f8";
-    context.fillRect(0, 0, 612, 792);
+    context.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
     context.textBaseline = "alphabetic";
     context.fillStyle = "#071f2f";
-    context.fillRect(0, 0, 612, 56);
+    context.fillRect(0, 0, PAGE_WIDTH, 56);
     context.fillStyle = "#42e1ea";
-    context.fillRect(0, 52, 612, 4);
+    context.fillRect(0, 52, PAGE_WIDTH, 4);
     context.fillStyle = "#ffffff";
-    context.font = "700 11px Arial, 'Microsoft YaHei', 'PingFang SC', sans-serif";
+    context.font = `700 11px ${fontFamily}`;
     context.fillText("FRED HIRING SYSTEM", 50, 34);
     context.fillStyle = "#bfd8dd";
-    context.font = "400 8px Arial, 'Microsoft YaHei', 'PingFang SC', sans-serif";
+    context.font = `400 8px ${fontFamily}`;
     context.textAlign = "right";
     context.fillText(translate(locale, "Confidential report"), 562, 34);
     context.textAlign = "left";
 
-    let y = 78;
-    for (const row of page) {
-      if (row.text) {
-        const heading = isSectionHeading(row);
-        context.fillStyle = canvasSurface(row);
-        context.fillRect(44, y - row.size - 5, 524, row.leading + 7);
-        context.fillStyle = heading ? "#ffffff" : canvasColor(row.tone);
-        context.font = `${row.bold ? 700 : 400} ${row.size}px Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif`;
-        context.fillText(row.text, 56 + (row.indent || 0), y);
-      }
-      y += row.leading + (row.gapAfter || 0);
-    }
+    const drawText = (row: TextRow) => {
+      context.fillStyle = toneText(row.tone).canvas;
+      context.font = `${row.bold ? 700 : 400} ${row.size}px ${fontFamily}`;
+      context.fillText(row.text, row.x, row.y);
+    };
+
+    pageHeaderRows(page, locale).forEach(drawText);
+    page.cards.forEach((card) => {
+      const fill = toneFill(card.tone);
+      context.beginPath();
+      context.roundRect(card.x, card.y, card.width, card.height, 12);
+      context.fillStyle = fill.canvas;
+      context.fill();
+      context.strokeStyle = fill.border;
+      context.lineWidth = 0.8;
+      context.stroke();
+      context.save();
+      context.beginPath();
+      context.roundRect(card.x, card.y, card.width, card.height, 12);
+      context.clip();
+      context.fillStyle = toneText(card.tone).canvas;
+      context.fillRect(card.x, card.y, card.width, 4);
+      context.restore();
+      cardTextRows(card, locale).forEach(drawText);
+    });
 
     context.fillStyle = "#071f2f";
-    context.fillRect(0, 748, 612, 44);
+    context.fillRect(0, 748, PAGE_WIDTH, 44);
     context.fillStyle = "#c7dade";
-    context.font = "400 9px Arial, 'Microsoft YaHei', 'PingFang SC', sans-serif";
+    context.font = `400 9px ${fontFamily}`;
     context.fillText(`${translate(locale, "Confidential")} - ${detail.candidateName}`, 50, 774);
     context.textAlign = "right";
-    context.font = "700 9px Arial, 'Microsoft YaHei', 'PingFang SC', sans-serif";
-    context.fillText(`${pageIndex + 1} / ${pages.length}`, 562, 774);
+    context.font = `700 9px ${fontFamily}`;
+    context.fillText(`${pageIndex + 1} / ${REPORT_PAGE_COUNT}`, 562, 774);
     context.textAlign = "left";
 
-    return base64Bytes(canvas.toDataURL("image/jpeg", 0.9).split(",", 2)[1]);
+    return base64Bytes(canvas.toDataURL("image/jpeg", 0.92).split(",", 2)[1]);
   });
 
   const encoder = new TextEncoder();
   const objects: Array<Array<Uint8Array>> = [];
   const pageObjectNumbers = pageImages.map((_, index) => 3 + index * 3);
   objects[1] = [encoder.encode("<< /Type /Catalog /Pages 2 0 R >>")];
-  objects[2] = [encoder.encode(`<< /Type /Pages /Kids [${pageObjectNumbers.map((number) => `${number} 0 R`).join(" ")}] /Count ${pageImages.length} >>`)];
+  objects[2] = [encoder.encode(`<< /Type /Pages /Kids [${pageObjectNumbers.map((number) => `${number} 0 R`).join(" ")}] /Count ${REPORT_PAGE_COUNT} >>`)];
 
   pageImages.forEach((image, index) => {
     const pageObject = pageObjectNumbers[index];
@@ -579,14 +563,10 @@ function createRasterCandidateReportPdf(detail: SubmissionDetail, locale: AppLoc
       image,
       encoder.encode("\nendstream"),
     ];
-    objects[contentObject] = [
-      encoder.encode(`<< /Length ${stream.length} >>\nstream\n`),
-      stream,
-      encoder.encode("endstream"),
-    ];
+    objects[contentObject] = [encoder.encode(`<< /Length ${stream.length} >>\nstream\n`), stream, encoder.encode("endstream")];
   });
 
-  const chunks: Uint8Array[] = [encoder.encode("%PDF-1.4\n% Fred Hiring System CJK report\n")];
+  const chunks: Uint8Array[] = [encoder.encode("%PDF-1.4\n% Fred Hiring System Arial report\n")];
   const offsets: number[] = [0];
   let byteLength = chunks[0].length;
   for (let index = 1; index < objects.length; index += 1) {
@@ -615,13 +595,16 @@ export function createCandidateReportPdf(detail: SubmissionDetail, locale: AppLo
 
 export function candidateShareText(detail: SubmissionDetail, locale: AppLocale = "en") {
   const t = (source: string, values: Record<string, string | number> = {}) => translate(locale, source, values);
+  const alternatives = detail.analysis.alternativePositions || [];
   return [
     t("Fred Hiring System candidate assessment: {name}", { name: detail.candidateName }),
     t("Position: {position}", { position: detail.roleLabel }),
-    t("Restaurant type: {restaurant}", { restaurant: detail.restaurantConceptLabel }),
     t("Position-fit score: {percentage}%", { percentage: detail.fitPercentage }),
     t("Hiring recommendation: {recommendation}", { recommendation: detail.analysis.hiringRecommendation.label }),
     t("Written result: {result}", { result: outcomeText(detail.outcome, locale) }),
-    t("The confidential PDF report contains the detailed analysis and answer evidence."),
+    ...(alternatives.length
+      ? [t("Alternative positions to explore: {positions}", { positions: alternatives.map((item) => item.label).join(", ") })]
+      : []),
+    t("The confidential PDF contains a three-page personality, job-fit, and SWOT/development report."),
   ].join("\n");
 }

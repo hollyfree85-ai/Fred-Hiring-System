@@ -395,7 +395,7 @@ function detailFromStored(stored: StoredSubmission, locale: AppLocale = "en"): S
       ...score.categoryScores[category],
     })),
     answers: score.answerDetails,
-    analysis: buildDetailedAnalysis(score, locale),
+    analysis: buildDetailedAnalysis(score, locale, stored.role),
   };
 }
 

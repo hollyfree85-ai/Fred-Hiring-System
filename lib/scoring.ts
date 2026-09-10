@@ -4,6 +4,7 @@ import {
   getQuestionById,
   getAssessmentQuestions,
   questionPrompt,
+  roleLabels,
   type AssessmentSelection,
   type PsychologyTrait,
   type QuestionCategory,
@@ -255,7 +256,24 @@ const psychologyTraitOrder: PsychologyTrait[] = [
   "adaptability",
 ];
 
-export function buildDetailedAnalysis(result: ScoreResult, locale: AppLocale = "en") {
+const alternativeRoleOptions: Record<AssessmentProfile, CandidateRole[]> = {
+  host_cashier: ["greeter", "cashier", "to_go_specialist", "reservationist"],
+  server: ["server_assistant", "food_runner", "host_hostess", "cashier"],
+  bartender: ["barback", "wine_server", "server_assistant", "host_hostess"],
+  busser_runner: ["food_runner", "busser_runner", "utility_worker", "dining_room_attendant"],
+  assistant_manager: ["shift_leader", "supervisor", "lead_host", "catering_coordinator", "assistant_manager"],
+  cook: ["cook_prep", "kitchen_helper", "production_cook", "pantry_cook"],
+  cook_prep: ["kitchen_helper", "dishwasher", "stocker", "utility_worker"],
+  sushi_cook: ["sushi_prep", "sushi_helper", "seafood_prep", "cook_prep"],
+  sushi_prep: ["sushi_helper", "seafood_prep", "kitchen_helper", "cook_prep"],
+  sushi_chef: ["sushi_prep", "sushi_helper", "seafood_prep", "raw_bar_chef"],
+};
+
+export function buildDetailedAnalysis(
+  result: ScoreResult,
+  locale: AppLocale = "en",
+  requestedRole?: CandidateRole,
+) {
   const t = (source: string, values: Record<string, string | number> = {}) => translate(locale, source, values);
   const categoryLabel = (category: QuestionCategory) => t(categoryLabels[category]);
   const psychologyProfile = psychologyTraitOrder.flatMap((trait) => {
@@ -431,6 +449,22 @@ export function buildDetailedAnalysis(result: ScoreResult, locale: AppLocale = "
             t("The written evidence does not currently support role readiness. Do not rely on this label alone; document the job-related gaps and apply the same review process used for comparable candidates."),
         };
 
+  const strongestPsychologyTrait = [...psychologyProfile]
+    .sort((left, right) => right.percentage - left.percentage)[0];
+  const alternativePositions = result.outcome === "not_pass" && requestedRole
+    ? alternativeRoleOptions[positionForRole(requestedRole).profile]
+        .filter((role) => role !== requestedRole)
+        .slice(0, 3)
+        .map((role) => ({
+          role,
+          label: t(roleLabels[role]),
+          reason: t(
+            "Potential adjacent role based on the candidate's strongest work-psychology signal ({trait}) and the requested role family. Verify it with a separate role-specific interview or skills check.",
+            { trait: strongestPsychologyTrait?.label || t("job-related work patterns") },
+          ),
+        }))
+    : [];
+
   return {
     summary:
       result.outcome === "pass"
@@ -446,6 +480,7 @@ export function buildDetailedAnalysis(result: ScoreResult, locale: AppLocale = "
     developmentPlan,
     developmentNote:
       t("Training times are planning estimates based on written-score gaps, not guarantees. A manager should adjust them after observing learning pace and job performance; never use a disability or other protected characteristic to set the timeline."),
+    alternativePositions,
     psychologyProfile,
     strengths,
     priorities,

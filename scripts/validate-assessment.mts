@@ -124,8 +124,8 @@ for (const role of candidateRoles) {
   if (weakestResult.fitPercentage !== 1 || weakestResult.outcome !== "not_pass") {
     throw new Error(`${role}: weakest valid response set must score 1% and not pass.`);
   }
-  const strongestAnalysis = buildDetailedAnalysis(strongestResult);
-  const weakestAnalysis = buildDetailedAnalysis(weakestResult);
+  const strongestAnalysis = buildDetailedAnalysis(strongestResult, "en", role);
+  const weakestAnalysis = buildDetailedAnalysis(weakestResult, "en", role);
   if (
     strongestAnalysis.hiringRecommendation.status !== "recommended"
     || strongestAnalysis.swot.strengths.length === 0
@@ -138,6 +138,7 @@ for (const role of candidateRoles) {
     weakestAnalysis.hiringRecommendation.status !== "not_recommended"
     || weakestAnalysis.swot.weaknesses.length === 0
     || weakestAnalysis.swot.threats.length === 0
+    || weakestAnalysis.alternativePositions.length !== 3
     || !weakestAnalysis.developmentPlan.some((item) => item.estimatedTimeline === "60–90 days")
   ) {
     throw new Error(`${role}: weakest response set must produce hiring risks and a long-range improvement plan.`);

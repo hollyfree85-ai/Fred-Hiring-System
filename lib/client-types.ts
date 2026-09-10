@@ -134,6 +134,11 @@ export type SubmissionDetail = SubmissionSummary & {
     };
     developmentPlan: DevelopmentPlanItem[];
     developmentNote: string;
+    alternativePositions: Array<{
+      role: CandidateRole;
+      label: string;
+      reason: string;
+    }>;
     psychologyProfile: PsychologyProfileItem[];
     strengths: Array<{ category: QuestionCategory; label: string; percentage: number; statement: string }>;
     priorities: Array<{ category: QuestionCategory; label: string; percentage: number; statement: string }>;

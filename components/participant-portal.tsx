@@ -122,7 +122,6 @@ export function ParticipantPortal() {
   const answeredCount = Object.keys(answers).length;
   const currentQuestion = questions[currentIndex];
   const selectedFamily = jobFamilies.find((family) => family.id === identity.jobFamily) || jobFamilies[3];
-  const selectedRestaurant = restaurantConcepts.find((concept) => concept.id === identity.restaurantConcept);
   const collator = useMemo(
     () => new Intl.Collator(intlLocale(locale), { sensitivity: "base" }),
     [locale],
@@ -344,19 +343,6 @@ export function ParticipantPortal() {
             <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
               {t("The assessment combines 30 non-clinical work-psychology questions with 45 technical questions tailored to the position you choose.")}
             </p>
-            <div className="mt-9 grid gap-3 sm:grid-cols-3 lg:mt-auto">
-              {[
-                ["75", t("Total questions"), ClipboardList],
-                ["30 / 150", t("Work psychology"), ShieldCheck],
-                ["45 / 1,000", t("Tailored technical"), BriefcaseBusiness],
-              ].map(([value, label, Icon]) => (
-                <div key={String(label)} className="rounded-2xl border border-white/10 bg-white/[.06] p-4 backdrop-blur-sm">
-                  <Icon className="size-4 text-cyan-300" />
-                  <p className="mt-4 text-2xl font-black">{String(value)}</p>
-                  <p className="mt-1 text-sm text-slate-400">{String(label)}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </section>
 
@@ -408,7 +394,7 @@ export function ParticipantPortal() {
                   }}
                 >
                   <SelectTrigger className="h-12 w-full rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent className="max-h-[min(60vh,420px)]">{sortedJobFamilies.map((family) => <SelectItem key={family.id} value={family.id}><span className="flex w-full items-center justify-between gap-3"><span>{t(family.label)}</span><span className="text-xs text-slate-400">{t("{count} positions", { count: family.positions.length })}</span></span></SelectItem>)}</SelectContent>
+                  <SelectContent className="max-h-[min(60vh,420px)]">{sortedJobFamilies.map((family) => <SelectItem key={family.id} value={family.id}>{t(family.label)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
@@ -419,18 +405,12 @@ export function ParticipantPortal() {
                 </Select>
               </div>
             </div>
-            <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 px-4 py-3 text-xs leading-5 text-cyan-950">
-              <strong>{t("{family} selected", { family: t(selectedFamily.label) })}</strong> — {t("all {count} positions in this job family are shown above in alphabetical order.", { count: selectedFamily.positions.length })}
-            </div>
             <div className="space-y-2">
               <Label>{t("Experience level")}</Label>
               <Select value={identity.experienceLevel} onValueChange={(value) => setIdentity((current) => ({ ...current, experienceLevel: value as ExperienceLevel }))}>
                 <SelectTrigger className="h-12 w-full rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>{Object.entries(experienceLevelLabels).map(([value, label]) => <SelectItem key={value} value={value}>{t(label)}</SelectItem>)}</SelectContent>
               </Select>
-            </div>
-            <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 px-4 py-3 text-xs leading-5 text-cyan-950">
-              <strong>{t("Assessment path:")}</strong> {selectedRestaurant?.label} → {t(selectedFamily.label)} → {t(roleLabels[identity.role])} → {t(experienceLevelLabels[identity.experienceLevel || "none"])}
             </div>
             <ErrorMessage message={error} />
             <Button onClick={beginProfile} className="h-12 w-full rounded-xl bg-[#e7512f] text-base font-bold text-white hover:bg-[#d94625]">
