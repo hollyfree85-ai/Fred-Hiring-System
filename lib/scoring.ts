@@ -1,9 +1,13 @@
 import {
   categoryLabels,
   type CandidateRole,
+  getQuestionById,
   getAssessmentQuestions,
+  questionPrompt,
+  type AssessmentSelection,
   type QuestionCategory,
 } from "@/lib/question-bank";
+import { positionForRole, type AssessmentProfile } from "@/lib/industry-catalog";
 import { translate, type AppLocale } from "@/lib/i18n";
 
 export const categoryWeights: Record<QuestionCategory, number> = {
@@ -21,7 +25,7 @@ export const passingRules = {
   technical: 70,
 } as const;
 
-const criticalQuestionIds: Record<CandidateRole, Set<string>> = {
+const criticalQuestionIds: Record<AssessmentProfile, Set<string>> = {
   host_cashier: new Set(["HC07", "HC08", "HC13", "HC14", "HC18", "HC23", "HC26", "HC35", "HC43", "HC44"]),
   server: new Set(["SV02", "SV06", "SV07", "SV13", "SV14", "SV15", "SV22", "SV28", "SV31", "SV34", "SV45"]),
   bartender: new Set(["BT01", "BT02", "BT06", "BT11", "BT12", "BT13", "BT14", "BT18", "BT20", "BT23", "BT27", "BT30"]),
@@ -36,6 +40,7 @@ const criticalQuestionIds: Record<CandidateRole, Set<string>> = {
 
 export type AnswerDetail = {
   questionId: string;
+  sourceQuestionId: string;
   category: QuestionCategory;
   categoryLabel: string;
   prompt: string;
@@ -45,6 +50,7 @@ export type AnswerDetail = {
   maxPoints: number;
   isCritical: boolean;
   reviewNote: string;
+  contextLead?: import("@/lib/question-bank").QuestionContextLead;
 };
 
 export type ScoreResult = {
@@ -64,14 +70,30 @@ const percent = (score: number, max: number) =>
 export function scoreSubmission(
   role: CandidateRole,
   answers: Record<string, string>,
+  selection?: AssessmentSelection,
 ): ScoreResult {
-  const questions = getAssessmentQuestions(role);
-  const expectedIds = new Set(questions.map((question) => question.id));
   const providedIds = Object.keys(answers);
+  const questions = selection
+    ? getAssessmentQuestions(role, selection)
+    : providedIds
+        .map((questionId) => getQuestionById(questionId))
+        .filter((question): question is NonNullable<typeof question> => question !== undefined);
+  const expectedIds = new Set(questions.map((question) => question.id));
+  const counts = questions.reduce<Record<QuestionCategory, number>>((current, question) => {
+    current[question.category] += 1;
+    return current;
+  }, { work_style: 0, communication: 0, problem_solving: 0, technical: 0 });
+  const sourceIds = new Set(questions.map((question) => question.sourceQuestionId || question.id));
 
   if (
-    providedIds.length !== questions.length ||
-    providedIds.some((id) => !expectedIds.has(id))
+    providedIds.length !== 75
+    || questions.length !== 75
+    || providedIds.some((id) => !expectedIds.has(id))
+    || sourceIds.size !== 75
+    || counts.work_style !== 10
+    || counts.communication !== 10
+    || counts.problem_solving !== 10
+    || counts.technical !== 45
   ) {
     throw new Error("Please answer all 75 questions before submitting.");
   }
@@ -94,15 +116,19 @@ export function scoreSubmission(
     categoryScores[question.category].max += maxPoints;
     return {
       questionId: question.id,
+      sourceQuestionId: question.sourceQuestionId || question.id,
       category: question.category,
       categoryLabel: categoryLabels[question.category],
-      prompt: question.prompt,
+      prompt: questionPrompt(question),
       selectedOptionId,
       selectedText: selected.text,
       points: selected.points,
       maxPoints,
-      isCritical: criticalQuestionIds[role].has(question.id),
+      isCritical: criticalQuestionIds[
+        question.assessmentProfile || positionForRole(role).profile
+      ].has(question.sourceQuestionId || question.id),
       reviewNote: question.reviewNote,
+      contextLead: question.contextLead,
     };
   });
 

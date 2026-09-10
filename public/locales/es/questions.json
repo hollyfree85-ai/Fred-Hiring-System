@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "testVersion": "2026.09.3",
+  "testVersion": "2026.09.4",
   "questions": {
     "AM01": {
       "prompt": "¿Cuál es el objetivo principal de la reunión previa al turno?",

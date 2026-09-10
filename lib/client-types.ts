@@ -1,9 +1,13 @@
 import type { CandidateRole, QuestionCategory } from "@/lib/question-bank";
+import type { ExperienceLevel, JobFamilyId, RestaurantConceptId } from "@/lib/industry-catalog";
 
 export type CandidateIdentity = {
   candidateName: string;
   phone: string;
   role: CandidateRole;
+  restaurantConcept: RestaurantConceptId | "";
+  jobFamily: JobFamilyId | "";
+  experienceLevel: ExperienceLevel | "";
 };
 
 export type CandidateBiodata = {
@@ -23,6 +27,9 @@ export type CandidateBiodata = {
   alcoholTraining: "" | "not_applicable" | "yes" | "no" | "in_progress";
   whyJoin: string;
   serviceExample: string;
+  restaurantConcept: RestaurantConceptId;
+  jobFamily: JobFamilyId;
+  experienceLevel: ExperienceLevel;
 };
 
 export type PublicQuestion = {
@@ -30,6 +37,8 @@ export type PublicQuestion = {
   category: QuestionCategory;
   prompt: string;
   options: Array<{ id: string; text: string }>;
+  sourceQuestionId?: string;
+  contextLead?: import("@/lib/question-bank").QuestionContextLead;
 };
 
 export type SubmissionSummary = {
@@ -42,6 +51,9 @@ export type SubmissionSummary = {
   criticalMisses: number;
   durationSeconds: number;
   submittedAt: string;
+  restaurantConcept?: RestaurantConceptId;
+  jobFamily?: JobFamilyId;
+  experienceLevel?: ExperienceLevel;
 };
 
 export type CategoryScore = {
@@ -54,6 +66,7 @@ export type CategoryScore = {
 
 export type AnswerReview = {
   questionId: string;
+  sourceQuestionId: string;
   category: QuestionCategory;
   categoryLabel: string;
   prompt: string;
@@ -63,6 +76,7 @@ export type AnswerReview = {
   maxPoints: number;
   isCritical: boolean;
   reviewNote: string;
+  contextLead?: import("@/lib/question-bank").QuestionContextLead;
 };
 
 export type AnalysisPoint = {
@@ -81,6 +95,9 @@ export type DevelopmentPlanItem = {
 
 export type SubmissionDetail = SubmissionSummary & {
   roleLabel: string;
+  restaurantConceptLabel: string;
+  jobFamilyLabel: string;
+  experienceLevelLabel: string;
   totalScore: number;
   maxScore: number;
   testVersion: string;

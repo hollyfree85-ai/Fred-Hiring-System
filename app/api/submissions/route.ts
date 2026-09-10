@@ -3,6 +3,15 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { submissions } from "@/db/schema";
 import { isCandidateRole, TEST_VERSION } from "@/lib/question-bank";
+import {
+  isExperienceLevel,
+  isJobFamily,
+  isRestaurantConcept,
+  positionRequiresAlcoholTraining,
+  type ExperienceLevel,
+  type JobFamilyId,
+  type RestaurantConceptId,
+} from "@/lib/industry-catalog";
 import { scoreSubmission } from "@/lib/scoring";
 
 type SubmissionBody = {
@@ -33,6 +42,9 @@ type Biodata = {
   alcoholTraining: "not_applicable" | "yes" | "no" | "in_progress";
   whyJoin: string;
   serviceExample: string;
+  restaurantConcept: RestaurantConceptId;
+  jobFamily: JobFamilyId;
+  experienceLevel: ExperienceLevel;
 };
 
 const allowedExperience = new Set(["none", "under_1", "1_2", "3_5", "over_5"]);
@@ -56,6 +68,9 @@ function parseBiodata(value: unknown, role: string): Biodata {
   const englishComfort = text("englishComfort", 20);
   const hoursDesired = text("hoursDesired", 20);
   const alcoholTraining = text("alcoholTraining", 20);
+  const restaurantConcept = text("restaurantConcept", 20);
+  const jobFamily = text("jobFamily", 50);
+  const experienceLevel = text("experienceLevel", 20);
   const availableDays = Array.isArray(raw.availableDays)
     ? raw.availableDays.filter((item): item is string => typeof item === "string" && allowedDays.has(item))
     : [];
@@ -74,7 +89,11 @@ function parseBiodata(value: unknown, role: string): Biodata {
     throw new Error("Complete the work-eligibility confirmations.");
   }
   if (!allowedTraining.has(alcoholTraining)) throw new Error("Choose your alcohol-training status.");
-  const alcoholTrainingApplies = role === "server" || role === "bartender" || role === "assistant_manager";
+  if (!isRestaurantConcept(restaurantConcept) || !isJobFamily(jobFamily) || !isExperienceLevel(experienceLevel)) {
+    throw new Error("Choose a valid restaurant type, job family, and experience level.");
+  }
+  if (restaurantExperience !== experienceLevel) throw new Error("The assessment experience level does not match the employment profile.");
+  const alcoholTrainingApplies = isCandidateRole(role) && positionRequiresAlcoholTraining(role);
   if (!alcoholTrainingApplies && alcoholTraining !== "not_applicable") {
     throw new Error("Alcohol training should be marked not applicable for this position.");
   }
@@ -99,6 +118,9 @@ function parseBiodata(value: unknown, role: string): Biodata {
     alcoholTraining: alcoholTraining as Biodata["alcoholTraining"],
     whyJoin: text("whyJoin", 800),
     serviceExample: text("serviceExample", 1000),
+    restaurantConcept,
+    jobFamily,
+    experienceLevel,
   };
 }
 
@@ -139,7 +161,12 @@ export async function POST(request: Request) {
 
     const biodata = parseBiodata(body.biodata, body.role);
 
-    const score = scoreSubmission(body.role, body.answers as Record<string, string>);
+    const score = scoreSubmission(body.role, body.answers as Record<string, string>, {
+      restaurantConcept: biodata.restaurantConcept,
+      jobFamily: biodata.jobFamily,
+      experienceLevel: biodata.experienceLevel,
+      seed: submissionKey,
+    });
     const durationSeconds = Math.max(
       0,
       Math.min(4 * 60 * 60, Math.round(Number(body.durationSeconds) || 0)),

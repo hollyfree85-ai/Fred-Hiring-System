@@ -6,8 +6,10 @@
   },
   "include": [
     "app/assessment-app.tsx",
+    "app/api/**/*.ts",
     "app/globals.css",
     "components/**/*.tsx",
+    "db/**/*.ts",
     "github-src/**/*.ts",
     "github-src/**/*.tsx",
     "lib/candidate-report.ts",

@@ -39,21 +39,43 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { candidateRoles, categoryLabels, roleLabels, type CandidateRole } from "@/lib/question-bank";
+import { categoryLabels, roleLabels, type CandidateRole } from "@/lib/question-bank";
+import {
+  experienceLevelLabels,
+  familyForRole,
+  jobFamilies,
+  positionForRole,
+  positionRequiresAlcoholTraining,
+  restaurantConcepts,
+  restaurantGroups,
+  type ExperienceLevel,
+  type JobFamilyId,
+  type RestaurantConceptId,
+} from "@/lib/industry-catalog";
 import type { CandidateBiodata, CandidateIdentity, PublicQuestion } from "@/lib/client-types";
 import { useI18n } from "@/lib/i18n";
 import { localizeQuestions } from "@/lib/question-localization";
 
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const shifts = ["Lunch", "Dinner", "Double / Long Shift"];
-const alcoholTrainingRoles = new Set<CandidateRole>(["server", "bartender", "assistant_manager"]);
+const defaultRestaurantConcept = "concept_006" as RestaurantConceptId;
+const defaultJobFamily = "host_cashier_front_desk" as JobFamilyId;
 
-function emptyBiodata(role: CandidateRole): CandidateBiodata {
+const initialIdentity: CandidateIdentity = {
+  candidateName: "",
+  phone: "",
+  role: "host_cashier",
+  restaurantConcept: defaultRestaurantConcept,
+  jobFamily: defaultJobFamily,
+  experienceLevel: "none",
+};
+
+function emptyBiodata(identity: CandidateIdentity): CandidateBiodata {
   return {
     email: "",
     cityState: "",
     availableStartDate: "",
-    restaurantExperience: "",
+    restaurantExperience: identity.experienceLevel,
     mostRecentEmployer: "",
     mostRecentRole: "",
     reasonLeaving: "",
@@ -63,17 +85,14 @@ function emptyBiodata(role: CandidateRole): CandidateBiodata {
     hoursDesired: "",
     authorizedToWork: null,
     meetsAgeRequirement: null,
-    alcoholTraining: alcoholTrainingRoles.has(role) ? "" : "not_applicable",
+    alcoholTraining: positionRequiresAlcoholTraining(identity.role) ? "" : "not_applicable",
     whyJoin: "",
     serviceExample: "",
+    restaurantConcept: identity.restaurantConcept || defaultRestaurantConcept,
+    jobFamily: identity.jobFamily || defaultJobFamily,
+    experienceLevel: identity.experienceLevel || "none",
   };
 }
-
-const initialIdentity: CandidateIdentity = {
-  candidateName: "",
-  phone: "",
-  role: "host_cashier",
-};
 
 function ErrorMessage({ message }: { message: string }) {
   if (!message) return null;
@@ -89,7 +108,7 @@ export function ParticipantPortal() {
   const { locale, t } = useI18n();
   const [stage, setStage] = useState<"entry" | "biodata" | "test" | "submitted">("entry");
   const [identity, setIdentity] = useState<CandidateIdentity>(initialIdentity);
-  const [biodata, setBiodata] = useState<CandidateBiodata>(emptyBiodata("host_cashier"));
+  const [biodata, setBiodata] = useState<CandidateBiodata>(emptyBiodata(initialIdentity));
   const [questions, setQuestions] = useState<PublicQuestion[]>([]);
   const [sourceQuestions, setSourceQuestions] = useState<PublicQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -102,6 +121,8 @@ export function ParticipantPortal() {
 
   const answeredCount = Object.keys(answers).length;
   const currentQuestion = questions[currentIndex];
+  const selectedFamily = jobFamilies.find((family) => family.id === identity.jobFamily) || jobFamilies[3];
+  const selectedRestaurant = restaurantConcepts.find((concept) => concept.id === identity.restaurantConcept);
 
   useEffect(() => {
     if (stage !== "test") return;
@@ -145,7 +166,15 @@ export function ParticipantPortal() {
       setError(t("Please enter a valid phone number."));
       return;
     }
-    setBiodata(emptyBiodata(identity.role));
+    if (!identity.restaurantConcept || !identity.jobFamily || !identity.experienceLevel) {
+      setError(t("Choose a restaurant type, job family, position, and experience level."));
+      return;
+    }
+    if (familyForRole(identity.role).id !== identity.jobFamily) {
+      setError(t("Choose a position from the selected job family."));
+      return;
+    }
+    setBiodata(emptyBiodata(identity));
     setSubmissionKey(crypto.randomUUID());
     setStage("biodata");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -175,7 +204,14 @@ export function ParticipantPortal() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/questions?role=${identity.role}`, { cache: "no-store" });
+      const query = new URLSearchParams({
+        role: identity.role,
+        restaurantConcept: biodata.restaurantConcept,
+        jobFamily: biodata.jobFamily,
+        experienceLevel: biodata.experienceLevel,
+        seed: submissionKey,
+      });
+      const response = await fetch(`/api/questions?${query.toString()}`, { cache: "no-store" });
       const data = (await response.json()) as { questions?: PublicQuestion[]; error?: string };
       if (!response.ok || !data.questions) throw new Error(data.error || t("The test could not be loaded."));
       if (data.questions.length !== 75) throw new Error(t("The assessment is not ready. Please ask the manager for help."));
@@ -257,7 +293,7 @@ export function ParticipantPortal() {
   function resetPortal() {
     setStage("entry");
     setIdentity(initialIdentity);
-    setBiodata(emptyBiodata("host_cashier"));
+    setBiodata(emptyBiodata(initialIdentity));
     setQuestions([]);
     setSourceQuestions([]);
     setAnswers({});
@@ -299,8 +335,8 @@ export function ParticipantPortal() {
             <div className="mt-9 grid gap-3 sm:grid-cols-3 lg:mt-auto">
               {[
                 ["75", t("Total questions"), ClipboardList],
-                ["30", t("Work judgment"), ShieldCheck],
-                ["45", t("Role technical"), BriefcaseBusiness],
+                ["30 / 150", t("Random work judgment"), ShieldCheck],
+                ["45 / 1,000", t("Tailored technical"), BriefcaseBusiness],
               ].map(([value, label, Icon]) => (
                 <div key={String(label)} className="rounded-2xl border border-white/10 bg-white/[.06] p-4 backdrop-blur-sm">
                   <Icon className="size-4 text-cyan-300" />
@@ -328,13 +364,57 @@ export function ParticipantPortal() {
               <div className="relative"><Phone className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input id="candidate-phone" autoComplete="tel" inputMode="tel" value={identity.phone} onChange={(event) => setIdentity((current) => ({ ...current, phone: event.target.value }))} className="h-12 rounded-xl pl-10" placeholder="(256) 555-0123" /></div>
             </div>
             <div className="space-y-2">
-              <Label>{t("Position requested")}</Label>
-              <Select value={identity.role} onValueChange={(value) => setIdentity((current) => ({ ...current, role: value as CandidateRole }))}>
+              <Label htmlFor="restaurant-concept">{t("Restaurant type")}</Label>
+              <select
+                id="restaurant-concept"
+                value={identity.restaurantConcept}
+                onChange={(event) => setIdentity((current) => ({ ...current, restaurantConcept: event.target.value as RestaurantConceptId }))}
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-xs outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+              >
+                {restaurantGroups.map((group) => (
+                  <optgroup key={group.id} label={t(group.label)}>
+                    {restaurantConcepts.filter((concept) => concept.group === group.id).map((concept) => (
+                      <option key={concept.id} value={concept.id}>{concept.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t("Job family")}</Label>
+                <Select
+                  value={identity.jobFamily}
+                  onValueChange={(value) => {
+                    const family = jobFamilies.find((item) => item.id === value) || jobFamilies[0];
+                    setIdentity((current) => ({
+                      ...current,
+                      jobFamily: family.id,
+                      role: family.positions[0].id as CandidateRole,
+                    }));
+                  }}
+                >
+                  <SelectTrigger className="h-12 w-full rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>{jobFamilies.map((family) => <SelectItem key={family.id} value={family.id}>{t(family.label)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t("Position requested")}</Label>
+                <Select value={identity.role} onValueChange={(value) => setIdentity((current) => ({ ...current, role: value as CandidateRole }))}>
+                  <SelectTrigger className="h-12 w-full rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>{selectedFamily.positions.map((position) => <SelectItem key={position.id} value={position.id}>{t(position.label)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("Experience level")}</Label>
+              <Select value={identity.experienceLevel} onValueChange={(value) => setIdentity((current) => ({ ...current, experienceLevel: value as ExperienceLevel }))}>
                 <SelectTrigger className="h-12 w-full rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {candidateRoles.map((role) => <SelectItem key={role} value={role}>{t(roleLabels[role])}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{Object.entries(experienceLevelLabels).map(([value, label]) => <SelectItem key={value} value={value}>{t(label)}</SelectItem>)}</SelectContent>
               </Select>
+            </div>
+            <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 px-4 py-3 text-xs leading-5 text-cyan-950">
+              <strong>{t("Assessment path:")}</strong> {selectedRestaurant?.label} → {t(selectedFamily.label)} → {t(roleLabels[identity.role])} → {t(experienceLevelLabels[identity.experienceLevel || "none"])}
             </div>
             <ErrorMessage message={error} />
             <Button onClick={beginProfile} className="h-12 w-full rounded-xl bg-[#e7512f] text-base font-bold text-white hover:bg-[#d94625]">
@@ -348,11 +428,12 @@ export function ParticipantPortal() {
   }
 
   if (stage === "biodata") {
-    const ageText = identity.role === "bartender"
+    const roleProfile = positionForRole(identity.role).profile;
+    const ageText = roleProfile === "bartender"
       ? t("I am at least 21 years old for Bartender duties.")
-      : identity.role === "server"
+      : roleProfile === "server" && positionRequiresAlcoholTraining(identity.role)
         ? t("I am at least 18 years old for alcohol-serving Server duties (subject to license/RVP verification).")
-        : identity.role === "assistant_manager"
+        : roleProfile === "assistant_manager"
           ? t("I meet the legal minimum age requirements for the Assistant Manager duties offered, including any alcohol duties assigned.")
           : t("I meet the legal minimum age requirements for the {role} duties offered.", { role: t(roleLabels[identity.role]) });
     return (
@@ -375,7 +456,7 @@ export function ParticipantPortal() {
                 <div className="space-y-2"><Label htmlFor="bio-email">{t("Email")} <span className="font-normal text-slate-400">{t("(optional)")}</span></Label><Input id="bio-email" type="email" autoComplete="email" value={biodata.email} onChange={(event) => setBiodata((current) => ({ ...current, email: event.target.value }))} className="h-11 rounded-xl" placeholder="name@example.com" /></div>
                 <div className="space-y-2"><Label htmlFor="bio-location">{t("City and state")}</Label><Input id="bio-location" autoComplete="address-level2" value={biodata.cityState} onChange={(event) => setBiodata((current) => ({ ...current, cityState: event.target.value }))} className="h-11 rounded-xl" placeholder="Huntsville, Alabama" /></div>
                 <div className="space-y-2"><Label htmlFor="bio-start">{t("Available start date")}</Label><Input id="bio-start" type="date" value={biodata.availableStartDate} onChange={(event) => setBiodata((current) => ({ ...current, availableStartDate: event.target.value }))} className="h-11 rounded-xl" /></div>
-                <div className="space-y-2"><Label>{t("Restaurant experience")}</Label><Select value={biodata.restaurantExperience} onValueChange={(value) => setBiodata((current) => ({ ...current, restaurantExperience: value as CandidateBiodata["restaurantExperience"] }))}><SelectTrigger className="h-11 w-full rounded-xl"><SelectValue placeholder={t("Select experience")} /></SelectTrigger><SelectContent><SelectItem value="none">{t("No restaurant experience")}</SelectItem><SelectItem value="under_1">{t("Less than 1 year")}</SelectItem><SelectItem value="1_2">{t("1–2 years")}</SelectItem><SelectItem value="3_5">{t("3–5 years")}</SelectItem><SelectItem value="over_5">{t("More than 5 years")}</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label>{t("Restaurant experience")}</Label><div className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700">{t(experienceLevelLabels[biodata.experienceLevel])}</div></div>
                 <div className="space-y-2"><Label htmlFor="bio-employer">{t("Most recent employer")} <span className="font-normal text-slate-400">{t("(optional)")}</span></Label><Input id="bio-employer" value={biodata.mostRecentEmployer} onChange={(event) => setBiodata((current) => ({ ...current, mostRecentEmployer: event.target.value }))} className="h-11 rounded-xl" /></div>
                 <div className="space-y-2"><Label htmlFor="bio-role">{t("Most recent role")} <span className="font-normal text-slate-400">{t("(optional)")}</span></Label><Input id="bio-role" value={biodata.mostRecentRole} onChange={(event) => setBiodata((current) => ({ ...current, mostRecentRole: event.target.value }))} className="h-11 rounded-xl" /></div>
                 <div className="space-y-2 md:col-span-2"><Label htmlFor="bio-leaving">{t("Reason for leaving / looking for a new role")} <span className="font-normal text-slate-400">{t("(optional)")}</span></Label><Textarea id="bio-leaving" value={biodata.reasonLeaving} onChange={(event) => setBiodata((current) => ({ ...current, reasonLeaving: event.target.value }))} className="min-h-24 rounded-xl" maxLength={600} /></div>
@@ -390,7 +471,7 @@ export function ParticipantPortal() {
                 <div className="space-y-5">
                   <div className="space-y-2"><Label>{t("Desired weekly hours")}</Label><Select value={biodata.hoursDesired} onValueChange={(value) => setBiodata((current) => ({ ...current, hoursDesired: value as CandidateBiodata["hoursDesired"] }))}><SelectTrigger className="h-11 w-full rounded-xl"><SelectValue placeholder={t("Select hours")} /></SelectTrigger><SelectContent><SelectItem value="under_20">{t("Under 20 hours")}</SelectItem><SelectItem value="20_30">{t("20–30 hours")}</SelectItem><SelectItem value="30_40">{t("30–40 hours")}</SelectItem><SelectItem value="over_40">{t("More than 40 hours")}</SelectItem></SelectContent></Select></div>
                   <div className="space-y-2"><Label>{t("Customer-facing English comfort")}</Label><Select value={biodata.englishComfort} onValueChange={(value) => setBiodata((current) => ({ ...current, englishComfort: value as CandidateBiodata["englishComfort"] }))}><SelectTrigger className="h-11 w-full rounded-xl"><SelectValue placeholder={t("Select level")} /></SelectTrigger><SelectContent><SelectItem value="basic">{t("Basic")}</SelectItem><SelectItem value="conversational">{t("Conversational")}</SelectItem><SelectItem value="professional">{t("Professional working level")}</SelectItem><SelectItem value="fluent">{t("Fluent")}</SelectItem></SelectContent></Select></div>
-                  {alcoholTrainingRoles.has(identity.role) && <div className="space-y-2"><Label>{t("Alcohol-service training")}</Label><Select value={biodata.alcoholTraining} onValueChange={(value) => setBiodata((current) => ({ ...current, alcoholTraining: value as CandidateBiodata["alcoholTraining"] }))}><SelectTrigger className="h-11 w-full rounded-xl"><SelectValue placeholder={t("Select status")} /></SelectTrigger><SelectContent><SelectItem value="yes">{t("Completed / current")}</SelectItem><SelectItem value="in_progress">{t("In progress")}</SelectItem><SelectItem value="no">{t("Not completed")}</SelectItem></SelectContent></Select></div>}
+                  {positionRequiresAlcoholTraining(identity.role) && <div className="space-y-2"><Label>{t("Alcohol-service training")}</Label><Select value={biodata.alcoholTraining} onValueChange={(value) => setBiodata((current) => ({ ...current, alcoholTraining: value as CandidateBiodata["alcoholTraining"] }))}><SelectTrigger className="h-11 w-full rounded-xl"><SelectValue placeholder={t("Select status")} /></SelectTrigger><SelectContent><SelectItem value="yes">{t("Completed / current")}</SelectItem><SelectItem value="in_progress">{t("In progress")}</SelectItem><SelectItem value="no">{t("Not completed")}</SelectItem></SelectContent></Select></div>}
                 </div>
                 <div className="space-y-3 md:col-span-2"><Label>{t("Are you legally authorized to work in the United States?")}</Label><RadioGroup value={biodata.authorizedToWork === null ? "" : biodata.authorizedToWork ? "yes" : "no"} onValueChange={(value) => setBiodata((current) => ({ ...current, authorizedToWork: value === "yes" }))} className="grid gap-2 sm:grid-cols-2"><label className="answer-option"><RadioGroupItem value="yes" /> {t("Yes")}</label><label className="answer-option"><RadioGroupItem value="no" /> {t("No")}</label></RadioGroup></div>
                 <div className="space-y-3 md:col-span-2"><Label>{ageText}</Label><RadioGroup value={biodata.meetsAgeRequirement === null ? "" : biodata.meetsAgeRequirement ? "yes" : "no"} onValueChange={(value) => setBiodata((current) => ({ ...current, meetsAgeRequirement: value === "yes" }))} className="grid gap-2 sm:grid-cols-2"><label className="answer-option"><RadioGroupItem value="yes" /> {t("Yes")}</label><label className="answer-option"><RadioGroupItem value="no" /> {t("No")}</label></RadioGroup></div>

@@ -1,16 +1,24 @@
 import { expandedRoleQuestions } from "@/lib/expanded-role-questions";
+import {
+  candidateRoles,
+  familyForRole,
+  isCandidateRole,
+  positionForRole,
+  restaurantConceptById,
+  roleLabels,
+  type AssessmentProfile,
+  type CandidateRole,
+  type ExperienceLevel,
+  type JobFamilyId,
+  type RestaurantConceptId,
+} from "@/lib/industry-catalog";
 
-export type CandidateRole =
-  | "host_cashier"
-  | "server"
-  | "bartender"
-  | "busser_runner"
-  | "assistant_manager"
-  | "cook"
-  | "sushi_cook"
-  | "cook_prep"
-  | "sushi_prep"
-  | "sushi_chef";
+export {
+  candidateRoles,
+  isCandidateRole,
+  roleLabels,
+  type CandidateRole,
+} from "@/lib/industry-catalog";
 
 export type QuestionCategory =
   | "work_style"
@@ -26,11 +34,47 @@ export type AssessmentQuestion = {
   prompt: string;
   options: Array<{ id: string; text: string; points: number }>;
   reviewNote: string;
+  sourceQuestionId?: string;
+  contextLead?: QuestionContextLead;
+  assessmentProfile?: AssessmentProfile;
+  restaurantTags?: string[];
 };
 
 export type PublicQuestion = Omit<AssessmentQuestion, "reviewNote" | "options"> & {
   options: Array<{ id: string; text: string }>;
 };
+
+export type AssessmentSelection = {
+  restaurantConcept: RestaurantConceptId;
+  jobFamily: JobFamilyId;
+  experienceLevel: ExperienceLevel;
+  seed: string;
+};
+
+export type QuestionContextLead =
+  | "opening_preparation"
+  | "peak_service"
+  | "shift_handoff"
+  | "closing_duties"
+  | "full_service"
+  | "fine_dining"
+  | "counter_service"
+  | "off_premise"
+  | "buffet_service"
+  | "bar_service"
+  | "seafood_service"
+  | "seafood_boil"
+  | "steakhouse_service"
+  | "barbecue_service"
+  | "sushi_service"
+  | "hibachi_show"
+  | "hibachi_express"
+  | "asian_kitchen"
+  | "breakfast_service"
+  | "event_service"
+  | "entry_supervised"
+  | "experienced_peak"
+  | "lead_quality";
 
 const q = (
   id: string,
@@ -1175,12 +1219,20 @@ bartenderQuestions.push(
   ], "Confirms that standardized house recipes control actual service."),
 );
 
-const roleQuestions: Record<CandidateRole, AssessmentQuestion[]> = {
+const profileQuestions: Record<AssessmentProfile, AssessmentQuestion[]> = {
   host_cashier: hostCashier,
   server: serverQuestions,
   bartender: bartenderQuestions,
   ...expandedRoleQuestions,
 };
+
+for (const [profile, questions] of Object.entries(profileQuestions) as Array<[AssessmentProfile, AssessmentQuestion[]]>) {
+  profileQuestions[profile] = questions.map((question) => ({
+    ...question,
+    sourceQuestionId: question.id,
+    assessmentProfile: profile,
+  }));
+}
 
 export const categoryLabels: Record<QuestionCategory, string> = {
   work_style: "Work Style & Reliability",
@@ -1189,41 +1241,313 @@ export const categoryLabels: Record<QuestionCategory, string> = {
   technical: "Role Technical Knowledge",
 };
 
-export const roleLabels: Record<CandidateRole, string> = {
-  host_cashier: "Host / Cashier",
-  server: "Server",
-  bartender: "Bartender",
-  busser_runner: "Busser / Food Runner",
-  assistant_manager: "Assistant Manager",
-  cook: "Cook",
-  sushi_cook: "Sushi Cook",
-  cook_prep: "Prep Cook",
-  sushi_prep: "Sushi Preparation",
-  sushi_chef: "Sushi Chef",
-};
+const behavioralBases = [
+  ...workStyle.slice(0, 10),
+  ...communication.slice(0, 10),
+  ...problemSolving.slice(0, 10),
+].map((question) => ({ ...question, sourceQuestionId: question.id }));
 
-export const candidateRoles = Object.keys(roleLabels) as CandidateRole[];
+const behavioralContextLeads: QuestionContextLead[] = [
+  "opening_preparation",
+  "peak_service",
+  "shift_handoff",
+  "closing_duties",
+];
 
-export function isCandidateRole(value: unknown): value is CandidateRole {
-  return typeof value === "string" && candidateRoles.includes(value as CandidateRole);
+function contextualForm(
+  question: AssessmentQuestion,
+  id: string,
+  contextLead: QuestionContextLead,
+  restaurantTags: string[] = [],
+) {
+  return {
+    ...question,
+    id,
+    sourceQuestionId: question.sourceQuestionId || question.id,
+    contextLead,
+    restaurantTags,
+  } satisfies AssessmentQuestion;
 }
 
-export function getAssessmentQuestions(role: CandidateRole) {
+export const behavioralQuestionBank = behavioralBases.flatMap((question) => [
+  question,
+  ...behavioralContextLeads.map((contextLead, index) =>
+    contextualForm(question, `${question.id}-B${index + 1}`, contextLead),
+  ),
+]);
+
+const contextTags: Record<QuestionContextLead, string[]> = {
+  opening_preparation: [],
+  peak_service: ["high_volume"],
+  shift_handoff: [],
+  closing_duties: [],
+  full_service: ["full_service", "casual"],
+  fine_dining: ["upscale", "full_service"],
+  counter_service: ["counter_service", "high_volume"],
+  off_premise: ["off_premise"],
+  buffet_service: ["buffet", "high_volume"],
+  bar_service: ["bar"],
+  seafood_service: ["seafood"],
+  seafood_boil: ["seafood_boil", "seafood"],
+  steakhouse_service: ["steakhouse", "full_service"],
+  barbecue_service: ["barbecue"],
+  sushi_service: ["sushi", "japanese"],
+  hibachi_show: ["hibachi_show", "japanese"],
+  hibachi_express: ["hibachi_express", "counter_service"],
+  asian_kitchen: ["japanese", "chinese", "korean", "southeast_asian"],
+  breakfast_service: ["breakfast"],
+  event_service: ["events"],
+  entry_supervised: [],
+  experienced_peak: ["high_volume"],
+  lead_quality: [],
+};
+
+const profileContextLeads: Record<AssessmentProfile, QuestionContextLead[]> = {
+  host_cashier: ["full_service", "counter_service", "off_premise", "buffet_service", "event_service"],
+  server: ["full_service", "fine_dining", "seafood_service", "seafood_boil", "steakhouse_service", "event_service"],
+  bartender: ["bar_service", "fine_dining", "seafood_service", "event_service", "peak_service"],
+  busser_runner: ["full_service", "buffet_service", "event_service", "peak_service", "closing_duties"],
+  assistant_manager: ["full_service", "counter_service", "off_premise", "bar_service", "seafood_boil", "event_service"],
+  cook: ["counter_service", "seafood_service", "seafood_boil", "steakhouse_service", "barbecue_service", "asian_kitchen", "breakfast_service", "hibachi_show", "hibachi_express"],
+  sushi_cook: ["sushi_service", "fine_dining", "asian_kitchen", "peak_service", "off_premise"],
+  cook_prep: ["counter_service", "seafood_service", "seafood_boil", "barbecue_service", "asian_kitchen", "breakfast_service", "event_service"],
+  sushi_prep: ["sushi_service", "fine_dining", "asian_kitchen", "off_premise", "peak_service"],
+  sushi_chef: ["sushi_service", "fine_dining", "asian_kitchen", "event_service", "peak_service"],
+};
+
+const technicalBases = (Object.entries(profileQuestions) as Array<[AssessmentProfile, AssessmentQuestion[]]>)
+  .flatMap(([, questions]) => questions);
+
+const primaryTechnicalForms = technicalBases.map((question, index) => {
+  const profile = question.assessmentProfile!;
+  const leads = profileContextLeads[profile];
+  const contextLead = leads[index % leads.length];
+  return contextualForm(question, `${question.id}-T1`, contextLead, contextTags[contextLead]);
+});
+
+const experienceTechnicalForms = (Object.entries(profileQuestions) as Array<[AssessmentProfile, AssessmentQuestion[]]>)
+  .flatMap(([, questions]) => questions.slice(0, 10))
+  .map((question, index) => {
+    const experienceLeads: QuestionContextLead[] = ["entry_supervised", "experienced_peak", "lead_quality"];
+    const contextLead = experienceLeads[index % experienceLeads.length];
+    return contextualForm(question, `${question.id}-T2`, contextLead, contextTags[contextLead]);
+  });
+
+export const technicalQuestionBank = [
+  ...technicalBases,
+  ...primaryTechnicalForms,
+  ...experienceTechnicalForms,
+];
+
+function hashSeed(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededRandom(seed: string) {
+  let value = hashSeed(seed) || 1;
+  return () => {
+    value += 0x6d2b79f5;
+    let current = value;
+    current = Math.imul(current ^ (current >>> 15), current | 1);
+    current ^= current + Math.imul(current ^ (current >>> 7), current | 61);
+    return ((current ^ (current >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function seededShuffle<T>(items: readonly T[], seed: string) {
+  const random = seededRandom(seed);
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+function groupBySource(questions: AssessmentQuestion[]) {
+  const groups = new Map<string, AssessmentQuestion[]>();
+  for (const question of questions) {
+    const sourceId = question.sourceQuestionId || question.id;
+    groups.set(sourceId, [...(groups.get(sourceId) || []), question]);
+  }
+  return groups;
+}
+
+const behavioralFormsBySource = groupBySource(behavioralQuestionBank);
+const technicalFormsBySource = groupBySource(technicalQuestionBank);
+const questionById = new Map(
+  [...behavioralQuestionBank, ...technicalQuestionBank].map((question) => [question.id, question] as const),
+);
+
+function chooseBehavioralForms(seed: string) {
+  return seededShuffle(behavioralBases, `${seed}:behavioral-order`).map((base, index) => {
+    const forms = behavioralFormsBySource.get(base.id)!;
+    return seededShuffle(forms, `${seed}:${base.id}:${index}`)[0];
+  });
+}
+
+function preferredExperienceLead(level: ExperienceLevel): QuestionContextLead {
+  if (level === "none" || level === "under_1") return "entry_supervised";
+  if (level === "over_5") return "lead_quality";
+  return "experienced_peak";
+}
+
+const requiredSpecificContextTag: Partial<Record<QuestionContextLead, string>> = {
+  seafood_service: "seafood",
+  seafood_boil: "seafood_boil",
+  steakhouse_service: "steakhouse",
+  barbecue_service: "barbecue",
+  sushi_service: "sushi",
+  hibachi_show: "hibachi_show",
+  hibachi_express: "hibachi_express",
+  breakfast_service: "breakfast",
+  event_service: "events",
+  bar_service: "bar",
+  off_premise: "off_premise",
+  buffet_service: "buffet",
+};
+
+function selectionTags(role: CandidateRole, selection: AssessmentSelection) {
+  const tags = new Set(restaurantConceptById(selection.restaurantConcept).tags);
+  const roleValue = String(role);
+  if (/seafood|oyster|raw_bar|fish_cutter/.test(roleValue)) tags.add("seafood");
+  if (/seafood_boil/.test(roleValue)) tags.add("seafood_boil");
+  if (/sushi|omakase|sashimi/.test(roleValue)) { tags.add("sushi"); tags.add("japanese"); }
+  if (/hibachi_express/.test(roleValue)) { tags.add("hibachi_express"); tags.add("counter_service"); }
+  if (/hibachi_show|teppanyaki|head_hibachi|^hibachi_chef$/.test(roleValue)) { tags.add("hibachi_show"); tags.add("japanese"); }
+  if (/steak|broiler/.test(roleValue)) tags.add("steakhouse");
+  if (/bbq|pitmaster/.test(roleValue)) tags.add("barbecue");
+  if (/breakfast/.test(roleValue)) tags.add("breakfast");
+  if (/banquet|catering|event/.test(roleValue)) tags.add("events");
+  if (/bartender|barback|sommelier|wine_server/.test(roleValue)) tags.add("bar");
+  return tags;
+}
+
+function chooseTechnicalForm(
+  base: AssessmentQuestion,
+  role: CandidateRole,
+  selection: AssessmentSelection,
+  index: number,
+) {
+  const conceptTags = selectionTags(role, selection);
+  const preferredLead = preferredExperienceLead(selection.experienceLevel);
+  const random = seededRandom(`${selection.seed}:${base.id}:${index}:form`);
+  return [...technicalFormsBySource.get(base.id)!]
+    .map((form) => {
+      const matchingTags = (form.restaurantTags || []).filter((tag) => conceptTags.has(tag)).length;
+      const contextScore = matchingTags * 20;
+      const requiredTag = form.contextLead ? requiredSpecificContextTag[form.contextLead] : undefined;
+      const mismatchPenalty = requiredTag && !conceptTags.has(requiredTag)
+        ? -60
+        : (form.restaurantTags || []).length > 0 && matchingTags === 0 ? -24 : 0;
+      const experienceScore = form.contextLead === preferredLead ? 16 : 0;
+      const neutralBaseScore = form.contextLead ? 0 : 2;
+      return { form, score: contextScore + mismatchPenalty + experienceScore + neutralBaseScore + random() * 5 };
+    })
+    .sort((left, right) => right.score - left.score)[0].form;
+}
+
+function chooseTechnicalQuestions(role: CandidateRole, selection: AssessmentSelection) {
+  const position = positionForRole(role);
+  const tags = selectionTags(role, selection);
+  const shuffledPrimary = seededShuffle(profileQuestions[position.profile], `${selection.seed}:technical-primary`);
+  const contextualPrimary = shuffledPrimary.filter((question) =>
+    (technicalFormsBySource.get(question.id) || []).some((form) => {
+      const requiredTag = form.contextLead ? requiredSpecificContextTag[form.contextLead] : undefined;
+      return requiredTag ? tags.has(requiredTag) : false;
+    }),
+  ).slice(0, 8);
+  const contextualIds = new Set(contextualPrimary.map((question) => question.id));
+  const primary = [
+    ...contextualPrimary,
+    ...shuffledPrimary.filter((question) => !contextualIds.has(question.id)),
+  ].slice(0, 30);
+  const relatedProfiles = position.relatedProfiles?.length
+    ? position.relatedProfiles
+    : ([position.profile] as AssessmentProfile[]);
+  const relatedPool = relatedProfiles.flatMap((profile) => profileQuestions[profile]);
+  const primaryIds = new Set(primary.map((question) => question.id));
+  const related = seededShuffle(
+    relatedPool.filter((question) => !primaryIds.has(question.id)),
+    `${selection.seed}:technical-related`,
+  ).slice(0, 15);
+  const selectedBases = [...primary, ...related];
+  if (selectedBases.length !== 45) {
+    throw new Error(`Technical selection for ${role} must contain exactly 45 competency roots.`);
+  }
+  return seededShuffle(
+    selectedBases.map((base, index) => chooseTechnicalForm(base, role, selection, index)),
+    `${selection.seed}:technical-order`,
+  );
+}
+
+export function getQuestionById(questionId: string) {
+  return questionById.get(questionId);
+}
+
+export function getAssessmentQuestions(role: CandidateRole, selection?: AssessmentSelection) {
+  if (!selection) {
+    const profile = positionForRole(role).profile;
+    return [...behavioralBases, ...profileQuestions[profile]];
+  }
+  if (familyForRole(role).id !== selection.jobFamily) {
+    throw new Error("The selected position does not belong to the selected job family.");
+  }
   return [
-    ...workStyle.slice(0, 10),
-    ...communication.slice(0, 10),
-    ...problemSolving.slice(0, 10),
-    ...roleQuestions[role],
+    ...chooseBehavioralForms(selection.seed),
+    ...chooseTechnicalQuestions(role, selection),
   ];
+}
+
+export function questionContextLeadText(contextLead: QuestionContextLead) {
+  const labels: Record<QuestionContextLead, string> = {
+    opening_preparation: "During opening preparation:",
+    peak_service: "During peak service:",
+    shift_handoff: "During a shift handoff:",
+    closing_duties: "During closing duties:",
+    full_service: "In a full-service restaurant:",
+    fine_dining: "In an upscale or fine-dining setting:",
+    counter_service: "In a high-volume counter-service restaurant:",
+    off_premise: "For takeout or delivery service:",
+    buffet_service: "In buffet or self-service operations:",
+    bar_service: "During bar service:",
+    seafood_service: "In a seafood restaurant:",
+    seafood_boil: "In a seafood-boil restaurant:",
+    steakhouse_service: "In a steakhouse:",
+    barbecue_service: "In barbecue or smokehouse operations:",
+    sushi_service: "In sushi service:",
+    hibachi_show: "In a hibachi-show or teppanyaki restaurant:",
+    hibachi_express: "In a hibachi-express operation:",
+    asian_kitchen: "In an Asian kitchen concept:",
+    breakfast_service: "During breakfast or brunch service:",
+    event_service: "During banquet, catering, or event service:",
+    entry_supervised: "For an entry-level employee working under supervision:",
+    experienced_peak: "For an experienced employee during a busy shift:",
+    lead_quality: "For a lead employee responsible for quality control:",
+  };
+  return labels[contextLead];
+}
+
+export function questionPrompt(question: Pick<AssessmentQuestion, "prompt" | "contextLead">) {
+  return question.contextLead
+    ? `${questionContextLeadText(question.contextLead)} ${question.prompt}`
+    : question.prompt;
 }
 
 export function toPublicQuestion(question: AssessmentQuestion): PublicQuestion {
   return {
     id: question.id,
     category: question.category,
-    prompt: question.prompt,
+    prompt: questionPrompt(question),
     options: question.options.map(({ id, text }) => ({ id, text })),
+    sourceQuestionId: question.sourceQuestionId || question.id,
+    contextLead: question.contextLead,
   };
 }
 
-export const TEST_VERSION = "2026.09.3";
+export const TEST_VERSION = "2026.09.4";

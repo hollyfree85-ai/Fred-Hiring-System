@@ -1,6 +1,6 @@
 {
   "language": "id",
-  "testVersion": "2026.09.3",
+  "testVersion": "2026.09.4",
   "questions": {
     "AM01": {
       "prompt": "Apa tujuan utama briefing sebelum shift?",

@@ -149,7 +149,10 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
   item(t("Candidate"), detail.candidateName);
   item(t("Phone"), detail.phone);
   item(t("Email"), bio.email || t("Not provided"));
+  item(t("Restaurant type"), detail.restaurantConceptLabel);
+  item(t("Job family"), detail.jobFamilyLabel);
   item(t("Position"), detail.roleLabel);
+  item(t("Experience level"), detail.experienceLevelLabel);
   item(t("Submitted"), detail.submittedAt);
   item(t("Completion time"), t("{minutes} minutes", { minutes: Math.max(0, Math.round(detail.durationSeconds / 60)) }));
   item(t("Position-fit score"), `${detail.fitPercentage}%`);
@@ -544,6 +547,7 @@ export function candidateShareText(detail: SubmissionDetail, locale: AppLocale =
   return [
     t("Fred Hiring System candidate assessment: {name}", { name: detail.candidateName }),
     t("Position: {position}", { position: detail.roleLabel }),
+    t("Restaurant type: {restaurant}", { restaurant: detail.restaurantConceptLabel }),
     t("Position-fit score: {percentage}%", { percentage: detail.fitPercentage }),
     t("Hiring recommendation: {recommendation}", { recommendation: detail.analysis.hiringRecommendation.label }),
     t("Written result: {result}", { result: outcomeText(detail.outcome, locale) }),

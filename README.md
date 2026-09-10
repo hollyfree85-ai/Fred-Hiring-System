@@ -4,11 +4,13 @@ A mobile-friendly restaurant hiring assessment. The public candidate flow requir
 
 ## Assessment design
 
-- 75 questions per position
-- 30 job-behavior questions: work style, communication, and customer problem solving
-- 45 position-specific technical questions
-- 10 positions: Host / Cashier, Server, Bartender, Busser / Food Runner, Assistant Manager, Cook, Sushi Cook, Prep Cook, Sushi Preparation, and Sushi Chef
-- Questions cover multiple restaurant formats, not only seafood service
+- 75 questions per candidate: 30 job-behavior questions plus 45 technical questions
+- 150 job-behavior forms covering work style, communication, and customer problem solving; the system selects a balanced random set of 30
+- 1,000 technical forms; the system selects 45 using the chosen restaurant concept, job family, position, and experience level
+- 220 restaurant concepts, from service-model categories through American, steak/BBQ, seafood, Japanese, Chinese/Taiwanese, Korean, and Southeast Asian concepts
+- 12 job families and 113 restaurant positions
+- Candidate path: Restaurant Type → Job Family → Position → Experience Level → Assessment
+- Session-seeded selection keeps the same candidate's question set stable through scoring while rotating forms between candidate sessions
 - Weighted result: technical 60%, work style 15%, communication 12.5%, problem solving 12.5%
 - Written passing standard: 75% overall, every section minimum, and no zero-point response on a designated critical item
 - Manager reports include strengths, weaknesses, opportunities, threats, a recommendation band, and an estimated 1–90 day development plan derived from scored job-related gaps
@@ -46,7 +48,7 @@ The production build is written to `github-dist/`.
 3. Enable Anonymous and Email/Password providers in Firebase Authentication.
 4. Create the Owner authentication user using the private email identifier defined in `github-src/firebase-config.ts`. Set the Owner password only in Firebase Authentication; never add it to source files.
 5. Add the GitHub Pages hostname to Firebase Authentication's authorized domains.
-6. Create Cloud Firestore in production mode and deploy `firestore.rules`.
+6. Create Cloud Firestore in production mode and deploy `firestore.rules`. Re-deploy the rules whenever the assessment schema or test version changes.
 7. Sign in as Fred and create Manager accounts from the Owner controls. No Manager account is pre-created.
 
 The Firebase web API key is an application identifier, not an authorization secret. Database access is enforced by Firebase Authentication and `firestore.rules`.
@@ -59,7 +61,7 @@ Use the repository name `Fred-Hiring-System` so the configured GitHub Pages base
 
 ## Hiring-use guardrails
 
-- Ask every candidate for the same position the same scored questions.
+- Give comparable candidates the same instructions, 30/45 blueprint, scoring formula, and thresholds. Random forms must remain parallel and job-related.
 - Provide a reasonable accommodation or accessible format when needed.
 - Do not use protected characteristics or medical information in scoring.
 - Review critical misses and structured interview evidence before making a final decision.

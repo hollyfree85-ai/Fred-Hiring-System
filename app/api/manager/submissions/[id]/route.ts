@@ -5,6 +5,15 @@ import { submissions } from "@/db/schema";
 import { isManagerRequest } from "@/lib/manager-auth";
 import { categoryLabels, isCandidateRole, type QuestionCategory, roleLabels } from "@/lib/question-bank";
 import { buildDetailedAnalysis, type AnswerDetail, type ScoreResult } from "@/lib/scoring";
+import {
+  experienceLevelLabels,
+  familyForRole,
+  isExperienceLevel,
+  isJobFamily,
+  isRestaurantConcept,
+  jobFamilyLabels,
+  restaurantConceptById,
+} from "@/lib/industry-catalog";
 
 export async function GET(
   request: Request,
@@ -24,6 +33,9 @@ export async function GET(
     failedRules: string[];
   };
   const biodata = JSON.parse(row.biodataJson) as Record<string, unknown>;
+  const restaurantConcept = isRestaurantConcept(biodata.restaurantConcept) ? biodata.restaurantConcept : undefined;
+  const jobFamily = isJobFamily(biodata.jobFamily) ? biodata.jobFamily : familyForRole(row.role).id;
+  const experienceLevel = isExperienceLevel(biodata.experienceLevel) ? biodata.experienceLevel : undefined;
   const categoryScores: ScoreResult["categoryScores"] = {
     work_style: {
       score: row.workStyleScore,
@@ -65,6 +77,9 @@ export async function GET(
         biodataJson: undefined,
         biodata,
         roleLabel: roleLabels[row.role],
+        restaurantConceptLabel: restaurantConcept ? restaurantConceptById(restaurantConcept).label : "Not recorded",
+        jobFamilyLabel: jobFamilyLabels[jobFamily],
+        experienceLevelLabel: experienceLevel ? experienceLevelLabels[experienceLevel] : "Not recorded",
         categoryScores: (Object.keys(categoryScores) as QuestionCategory[]).map((category) => ({
           category,
           label: categoryLabels[category],

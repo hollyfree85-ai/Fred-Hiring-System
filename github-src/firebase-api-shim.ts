@@ -10,11 +10,22 @@ import {
   getAssessmentQuestions,
   isCandidateRole,
   roleLabels,
+  seededShuffle,
   TEST_VERSION,
   toPublicQuestion,
   type CandidateRole,
   type QuestionCategory,
 } from "@/lib/question-bank";
+import {
+  experienceLevelLabels,
+  familyForRole,
+  isExperienceLevel,
+  isJobFamily,
+  isRestaurantConcept,
+  jobFamilyLabels,
+  positionRequiresAlcoholTraining,
+  restaurantConceptById,
+} from "@/lib/industry-catalog";
 import { buildDetailedAnalysis, scoreSubmission } from "@/lib/scoring";
 import { isAppLocale, translate, type AppLocale } from "@/lib/i18n";
 import {
@@ -97,7 +108,6 @@ type StoredSubmission = {
   submittedAt: string;
 };
 
-const alcoholTrainingRoles = new Set<CandidateRole>(["server", "bartender", "assistant_manager"]);
 const allowedExperience = new Set(["none", "under_1", "1_2", "3_5", "over_5"]);
 const allowedEnglish = new Set(["basic", "conversational", "professional", "fluent"]);
 const allowedHours = new Set(["under_20", "20_30", "30_40", "over_40"]);
@@ -124,15 +134,6 @@ function json(data: unknown, status = 200) {
       "Cache-Control": "no-store",
     },
   });
-}
-
-function shuffle<T>(items: T[]) {
-  const copy = [...items];
-  for (let index = copy.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
-  }
-  return copy;
 }
 
 function signedOutSession(): StaffSession {
@@ -220,6 +221,9 @@ function parseBiodata(value: unknown, role: CandidateRole): CandidateBiodata {
   const englishComfort = text(raw.englishComfort, 20);
   const hoursDesired = text(raw.hoursDesired, 20);
   const alcoholTraining = text(raw.alcoholTraining, 20);
+  const restaurantConcept = text(raw.restaurantConcept, 20);
+  const jobFamily = text(raw.jobFamily, 50);
+  const experienceLevel = text(raw.experienceLevel, 20);
   const availableDays = Array.isArray(raw.availableDays)
     ? raw.availableDays.filter((item): item is string => typeof item === "string" && allowedDays.has(item))
     : [];
@@ -238,8 +242,13 @@ function parseBiodata(value: unknown, role: CandidateRole): CandidateBiodata {
     throw new Error("Complete the work-eligibility confirmations.");
   }
   if (!allowedTraining.has(alcoholTraining)) throw new Error("Choose your alcohol-training status.");
-  if (alcoholTrainingRoles.has(role) === (alcoholTraining === "not_applicable")) {
-    throw new Error(alcoholTrainingRoles.has(role)
+  if (!isRestaurantConcept(restaurantConcept) || !isJobFamily(jobFamily) || !isExperienceLevel(experienceLevel)) {
+    throw new Error("Choose a valid restaurant type, job family, and experience level.");
+  }
+  if (restaurantExperience !== experienceLevel) throw new Error("The assessment experience level does not match the employment profile.");
+  if (familyForRole(role).id !== jobFamily) throw new Error("Choose a position from the selected job family.");
+  if (positionRequiresAlcoholTraining(role) === (alcoholTraining === "not_applicable")) {
+    throw new Error(positionRequiresAlcoholTraining(role)
       ? "Choose the alcohol-training status for this position."
       : "Alcohol training should be marked not applicable for this position.");
   }
@@ -261,6 +270,9 @@ function parseBiodata(value: unknown, role: CandidateRole): CandidateBiodata {
     alcoholTraining: alcoholTraining as CandidateBiodata["alcoholTraining"],
     whyJoin: text(raw.whyJoin, 800),
     serviceExample: text(raw.serviceExample, 1000),
+    restaurantConcept,
+    jobFamily,
+    experienceLevel,
   };
 }
 
@@ -329,6 +341,9 @@ function documentToStored(document: FirestoreDocument): StoredSubmission | null 
 function summaryFromStored(stored: StoredSubmission): SubmissionSummary {
   try {
     const score = scoreSubmission(stored.role, stored.answers);
+    const restaurantConcept = isRestaurantConcept(stored.biodata.restaurantConcept) ? stored.biodata.restaurantConcept : undefined;
+    const jobFamily = isJobFamily(stored.biodata.jobFamily) ? stored.biodata.jobFamily : familyForRole(stored.role).id;
+    const experienceLevel = isExperienceLevel(stored.biodata.experienceLevel) ? stored.biodata.experienceLevel : undefined;
     return {
       id: stored.id,
       candidateName: stored.candidateName,
@@ -339,6 +354,9 @@ function summaryFromStored(stored: StoredSubmission): SubmissionSummary {
       criticalMisses: score.criticalMisses,
       durationSeconds: stored.durationSeconds,
       submittedAt: stored.submittedAt,
+      restaurantConcept,
+      jobFamily,
+      experienceLevel,
     };
   } catch {
     return {
@@ -358,9 +376,15 @@ function summaryFromStored(stored: StoredSubmission): SubmissionSummary {
 function detailFromStored(stored: StoredSubmission, locale: AppLocale = "en"): SubmissionDetail {
   const score = scoreSubmission(stored.role, stored.answers);
   const categories = Object.keys(score.categoryScores) as QuestionCategory[];
+  const restaurantConcept = isRestaurantConcept(stored.biodata.restaurantConcept) ? stored.biodata.restaurantConcept : undefined;
+  const jobFamily = isJobFamily(stored.biodata.jobFamily) ? stored.biodata.jobFamily : familyForRole(stored.role).id;
+  const experienceLevel = isExperienceLevel(stored.biodata.experienceLevel) ? stored.biodata.experienceLevel : undefined;
   return {
     ...summaryFromStored(stored),
     roleLabel: translate(locale, roleLabels[stored.role]),
+    restaurantConceptLabel: restaurantConcept ? restaurantConceptById(restaurantConcept).label : translate(locale, "Not recorded"),
+    jobFamilyLabel: translate(locale, jobFamilyLabels[jobFamily]),
+    experienceLevelLabel: experienceLevel ? translate(locale, experienceLevelLabels[experienceLevel]) : translate(locale, "Not recorded"),
     totalScore: score.totalScore,
     maxScore: score.maxScore,
     testVersion: stored.testVersion,
@@ -417,10 +441,18 @@ async function loadStoredSubmissions() {
 
 async function handleQuestions(url: URL) {
   const role = url.searchParams.get("role");
+  const restaurantConcept = url.searchParams.get("restaurantConcept");
+  const jobFamily = url.searchParams.get("jobFamily");
+  const experienceLevel = url.searchParams.get("experienceLevel");
+  const seed = (url.searchParams.get("seed") || "").trim().slice(0, 80);
   if (!isCandidateRole(role)) return json({ error: "Choose a valid position." }, 400);
-  const questions = getAssessmentQuestions(role).map((question) => ({
+  if (!isRestaurantConcept(restaurantConcept) || !isJobFamily(jobFamily) || !isExperienceLevel(experienceLevel) || seed.length < 8) {
+    return json({ error: "Choose a valid restaurant type, job family, and experience level." }, 400);
+  }
+  if (familyForRole(role).id !== jobFamily) return json({ error: "Choose a position from the selected job family." }, 400);
+  const questions = getAssessmentQuestions(role, { restaurantConcept, jobFamily, experienceLevel, seed }).map((question, index) => ({
     ...toPublicQuestion(question),
-    options: shuffle(toPublicQuestion(question).options),
+    options: seededShuffle(toPublicQuestion(question).options, `${seed}:${question.id}:${index}:options`),
   }));
   return json({ role, roleLabel: roleLabels[role], version: TEST_VERSION, questions });
 }
@@ -441,8 +473,13 @@ async function handleSubmission(input: RequestInfo | URL, init?: RequestInit) {
     const answers = Object.fromEntries(
       Object.entries(body.answers).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
     );
-    scoreSubmission(body.role, answers);
     const biodata = parseBiodata(body.biodata, body.role);
+    scoreSubmission(body.role, answers, {
+      restaurantConcept: biodata.restaurantConcept,
+      jobFamily: biodata.jobFamily,
+      experienceLevel: biodata.experienceLevel,
+      seed: submissionKey,
+    });
     const durationSeconds = Math.max(0, Math.min(4 * 60 * 60, Math.round(Number(body.durationSeconds) || 0)));
     if (!runtime.auth.currentUser) await runtime.signInAnonymously(runtime.auth);
     await runtime.setDoc(runtime.doc(runtime.db, "submissions", submissionKey), {

@@ -1,9 +1,13 @@
-import type { AssessmentQuestion, CandidateRole } from "@/lib/question-bank";
+import type { AssessmentQuestion } from "@/lib/question-bank";
 
-export type ExpandedRole = Exclude<
-  CandidateRole,
-  "host_cashier" | "server" | "bartender"
->;
+export type ExpandedRole =
+  | "busser_runner"
+  | "assistant_manager"
+  | "cook"
+  | "sushi_cook"
+  | "cook_prep"
+  | "sushi_prep"
+  | "sushi_chef";
 
 type TechnicalSpec = {
   prompt: string;

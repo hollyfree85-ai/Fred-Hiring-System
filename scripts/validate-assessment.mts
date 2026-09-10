@@ -1,5 +1,12 @@
 import { readFile } from "node:fs/promises";
-import { candidateRoles, getAssessmentQuestions, TEST_VERSION } from "../lib/question-bank.ts";
+import {
+  behavioralQuestionBank,
+  candidateRoles,
+  getAssessmentQuestions,
+  technicalQuestionBank,
+  TEST_VERSION,
+} from "../lib/question-bank.ts";
+import { familyForRole, jobFamilies, restaurantConcepts } from "../lib/industry-catalog.ts";
 import { buildDetailedAnalysis, scoreSubmission } from "../lib/scoring.ts";
 
 type LocalizedQuestion = {
@@ -16,9 +23,13 @@ type QuestionCatalog = {
 
 const expectedQuestions = new Map<ReturnType<typeof getAssessmentQuestions>[number]["id"], ReturnType<typeof getAssessmentQuestions>[number]>();
 
-if (candidateRoles.length !== 10) {
-  throw new Error(`Expected 10 candidate roles, received ${candidateRoles.length}.`);
-}
+if (behavioralQuestionBank.length !== 150) throw new Error(`Expected 150 behavioral question forms, received ${behavioralQuestionBank.length}.`);
+if (technicalQuestionBank.length !== 1000) throw new Error(`Expected 1,000 technical question forms, received ${technicalQuestionBank.length}.`);
+if (new Set(behavioralQuestionBank.map((question) => question.id)).size !== 150) throw new Error("Behavioral question form IDs must be unique.");
+if (new Set(technicalQuestionBank.map((question) => question.id)).size !== 1000) throw new Error("Technical question form IDs must be unique.");
+if (restaurantConcepts.length !== 220) throw new Error(`Expected 220 restaurant concepts, received ${restaurantConcepts.length}.`);
+if (jobFamilies.length !== 12) throw new Error(`Expected 12 job families, received ${jobFamilies.length}.`);
+if (new Set(candidateRoles).size !== candidateRoles.length) throw new Error("Candidate position IDs must be unique.");
 
 for (const role of candidateRoles) {
   const questions = getAssessmentQuestions(role);
@@ -38,6 +49,42 @@ for (const role of candidateRoles) {
   }
   if (questions.some((question) => question.options.length !== 4)) {
     throw new Error(`${role}: every question must have exactly four choices.`);
+  }
+
+  const randomizedSelection = {
+    restaurantConcept: restaurantConcepts[candidateRoles.indexOf(role) % restaurantConcepts.length].id,
+    jobFamily: familyForRole(role).id,
+    experienceLevel: (["none", "under_1", "1_2", "3_5", "over_5"] as const)[candidateRoles.indexOf(role) % 5],
+    seed: `validation-${role}-2026-09-04`,
+  };
+  const randomized = getAssessmentQuestions(role, randomizedSelection);
+  const repeated = getAssessmentQuestions(role, randomizedSelection);
+  const alternate = getAssessmentQuestions(role, { ...randomizedSelection, seed: `${randomizedSelection.seed}-alternate` });
+  if (randomized.length !== 75 || new Set(randomized.map((question) => question.id)).size !== 75) {
+    throw new Error(`${role}: randomized assessment must contain 75 unique question forms.`);
+  }
+  if (randomized.map((question) => question.id).join("|") !== repeated.map((question) => question.id).join("|")) {
+    throw new Error(`${role}: identical session seed must reproduce the same assessment.`);
+  }
+  if (randomized.map((question) => question.id).join("|") === alternate.map((question) => question.id).join("|")) {
+    throw new Error(`${role}: different session seeds must rotate the assessment form.`);
+  }
+  const randomizedCounts = randomized.reduce<Record<string, number>>((current, question) => {
+    current[question.category] = (current[question.category] || 0) + 1;
+    return current;
+  }, {});
+  if (randomizedCounts.work_style !== 10 || randomizedCounts.communication !== 10 || randomizedCounts.problem_solving !== 10 || randomizedCounts.technical !== 45) {
+    throw new Error(`${role}: randomized assessment must preserve the 10/10/10/45 split.`);
+  }
+  const randomizedStrongestAnswers = Object.fromEntries(
+    randomized.map((question) => [
+      question.id,
+      question.options.reduce((strongest, option) => option.points > strongest.points ? option : strongest).id,
+    ]),
+  );
+  const randomizedStrongest = scoreSubmission(role, randomizedStrongestAnswers, randomizedSelection);
+  if (randomizedStrongest.fitPercentage !== 100 || randomizedStrongest.outcome !== "pass") {
+    throw new Error(`${role}: randomized strongest response set must score 100% and pass.`);
   }
 
   const strongestAnswers = Object.fromEntries(
@@ -78,12 +125,13 @@ for (const role of candidateRoles) {
     throw new Error(`${role}: weakest response set must produce hiring risks and a long-range improvement plan.`);
   }
 
-  console.log(`${role}: 75 questions · 30 behavioral · 45 technical · scoring + SWOT verified`);
+  console.log(`${role}: randomized 75-question form · scoring + SWOT verified`);
 }
 
 if (expectedQuestions.size !== 480) {
   throw new Error(`Expected 480 unique questions across all roles, received ${expectedQuestions.size}.`);
 }
+console.log(`${restaurantConcepts.length} restaurant concepts · ${jobFamilies.length} job families · ${candidateRoles.length} positions · 150 behavioral forms · 1,000 technical forms verified`);
 
 const localizedLocales = ["id", "es", "zh-CN", "zh-TW"] as const;
 const localizationRedFlags: Record<(typeof localizedLocales)[number], string[]> = {
@@ -248,7 +296,7 @@ for (const locale of localizedLocales) {
   if (redFlags.length > 0) {
     throw new Error(`${locale}: unnatural literal translation detected: ${redFlags.join(", ")}`);
   }
-  console.log(`${locale}: 480 localized questions · version ${TEST_VERSION} verified`);
+  console.log(`${locale}: 480 localized competency sources covering 1,150 rotated forms · version ${TEST_VERSION} verified`);
 }
 
 const uiTranslations = JSON.parse(
