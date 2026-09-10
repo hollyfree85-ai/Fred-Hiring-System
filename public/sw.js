@@ -1,4 +1,4 @@
-const CACHE_NAME = "fred-hiring-system-v8";
+const CACHE_NAME = "fred-hiring-system-v9";
 const scopeUrl = new URL(self.registration.scope);
 const asset = (path) => new URL(path, scopeUrl).toString();
 const APP_SHELL = [

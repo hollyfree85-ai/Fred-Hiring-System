@@ -8,6 +8,7 @@ import {
 } from "../lib/question-bank.ts";
 import { familyForRole, jobFamilies, restaurantConcepts } from "../lib/industry-catalog.ts";
 import { buildDetailedAnalysis, scoreSubmission } from "../lib/scoring.ts";
+import { psychologyLocalizedQuestion } from "../lib/work-psychology-localizations.ts";
 
 type LocalizedQuestion = {
   prompt: string;
@@ -29,11 +30,15 @@ if (new Set(behavioralQuestionBank.map((question) => question.id)).size !== 150)
 if (new Set(technicalQuestionBank.map((question) => question.id)).size !== 1000) throw new Error("Technical question form IDs must be unique.");
 if (restaurantConcepts.length !== 220) throw new Error(`Expected 220 restaurant concepts, received ${restaurantConcepts.length}.`);
 if (jobFamilies.length !== 12) throw new Error(`Expected 12 job families, received ${jobFamilies.length}.`);
+if (candidateRoles.length !== 113) throw new Error(`Expected 113 selectable positions, received ${candidateRoles.length}.`);
 if (new Set(candidateRoles).size !== candidateRoles.length) throw new Error("Candidate position IDs must be unique.");
+
+for (const question of [...behavioralQuestionBank, ...technicalQuestionBank]) {
+  expectedQuestions.set(question.sourceQuestionId || question.id, question);
+}
 
 for (const role of candidateRoles) {
   const questions = getAssessmentQuestions(role);
-  for (const question of questions) expectedQuestions.set(question.id, question);
   const questionIds = new Set(questions.map((question) => question.id));
   const optionIds = new Set(questions.flatMap((question) => question.options.map((option) => option.id)));
   const counts = questions.reduce<Record<string, number>>((current, question) => {
@@ -76,6 +81,18 @@ for (const role of candidateRoles) {
   if (randomizedCounts.work_style !== 10 || randomizedCounts.communication !== 10 || randomizedCounts.problem_solving !== 10 || randomizedCounts.technical !== 45) {
     throw new Error(`${role}: randomized assessment must preserve the 10/10/10/45 split.`);
   }
+  const psychology = randomized.slice(0, 30);
+  const traitCounts = psychology.reduce<Record<string, number>>((current, question) => {
+    if (!question.psychologyTrait) throw new Error(`${role}: question ${question.id} is missing a psychology trait.`);
+    current[question.psychologyTrait] = (current[question.psychologyTrait] || 0) + 1;
+    return current;
+  }, {});
+  if (Object.keys(traitCounts).length !== 6 || Object.values(traitCounts).some((count) => count !== 5)) {
+    throw new Error(`${role}: psychology section must contain six traits with five questions each.`);
+  }
+  if (randomized.slice(30).some((question) => question.psychologyTrait)) {
+    throw new Error(`${role}: technical questions must not carry psychology traits.`);
+  }
   const randomizedStrongestAnswers = Object.fromEntries(
     randomized.map((question) => [
       question.id,
@@ -113,6 +130,7 @@ for (const role of candidateRoles) {
     strongestAnalysis.hiringRecommendation.status !== "recommended"
     || strongestAnalysis.swot.strengths.length === 0
     || strongestAnalysis.developmentPlan.length === 0
+    || strongestAnalysis.psychologyProfile.length !== 6
   ) {
     throw new Error(`${role}: strongest response set must produce a complete recommended SWOT report.`);
   }
@@ -270,7 +288,7 @@ for (const locale of localizedLocales) {
     throw new Error(`${locale}: invalid language, test version, or question count.`);
   }
   for (const [questionId, source] of expectedQuestions) {
-    const localized = catalog.questions[questionId];
+    const localized = psychologyLocalizedQuestion(questionId, locale) || catalog.questions[questionId];
     if (!localized?.prompt.trim() || !localized.reviewNote.trim()) {
       throw new Error(`${locale}/${questionId}: missing prompt or review note.`);
     }
@@ -296,7 +314,7 @@ for (const locale of localizedLocales) {
   if (redFlags.length > 0) {
     throw new Error(`${locale}: unnatural literal translation detected: ${redFlags.join(", ")}`);
   }
-  console.log(`${locale}: 480 localized competency sources covering 1,150 rotated forms · version ${TEST_VERSION} verified`);
+  console.log(`${locale}: 480 active localized sources plus legacy history · 1,150 rotated forms · version ${TEST_VERSION} verified`);
 }
 
 const uiTranslations = JSON.parse(

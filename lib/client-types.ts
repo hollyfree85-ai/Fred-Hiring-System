@@ -1,4 +1,4 @@
-import type { CandidateRole, QuestionCategory } from "@/lib/question-bank";
+import type { CandidateRole, PsychologyTrait, QuestionCategory } from "@/lib/question-bank";
 import type { ExperienceLevel, JobFamilyId, RestaurantConceptId } from "@/lib/industry-catalog";
 
 export type CandidateIdentity = {
@@ -39,6 +39,7 @@ export type PublicQuestion = {
   options: Array<{ id: string; text: string }>;
   sourceQuestionId?: string;
   contextLead?: import("@/lib/question-bank").QuestionContextLead;
+  psychologyTrait?: PsychologyTrait;
 };
 
 export type SubmissionSummary = {
@@ -77,6 +78,19 @@ export type AnswerReview = {
   isCritical: boolean;
   reviewNote: string;
   contextLead?: import("@/lib/question-bank").QuestionContextLead;
+  psychologyTrait?: PsychologyTrait;
+};
+
+export type PsychologyProfileItem = {
+  trait: PsychologyTrait;
+  label: string;
+  score: number;
+  max: number;
+  percentage: number;
+  band: "strong" | "develop" | "priority";
+  bandLabel: string;
+  interpretation: string;
+  managerFollowUp: string;
 };
 
 export type AnalysisPoint = {
@@ -120,6 +134,7 @@ export type SubmissionDetail = SubmissionSummary & {
     };
     developmentPlan: DevelopmentPlanItem[];
     developmentNote: string;
+    psychologyProfile: PsychologyProfileItem[];
     strengths: Array<{ category: QuestionCategory; label: string; percentage: number; statement: string }>;
     priorities: Array<{ category: QuestionCategory; label: string; percentage: number; statement: string }>;
     reviewItems: AnswerReview[];

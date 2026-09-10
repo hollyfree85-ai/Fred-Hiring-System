@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   BarChart3,
   BookOpen,
+  Brain,
   BriefcaseBusiness,
   CalendarDays,
   CheckCircle2,
@@ -500,6 +501,14 @@ function CandidateDetail({
               <p className="relative mt-5 border-t border-white/10 pt-4 text-xs leading-5 text-white/60">{t("Decision support only: Owner or Manager must confirm job-related evidence through the same structured process used for comparable candidates.")}</p>
             </CardContent>
           </Card>
+
+          {detail.analysis.psychologyProfile.length > 0 && <section>
+            <div className="mb-3 flex items-end justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><Brain className="size-5 text-violet-700" /> {t("Work psychology profile")}</h3><p className="mt-1 text-sm text-slate-500">{t("Six non-clinical work traits based on the first 30 responses.")}</p></div><Badge variant="outline" className="hidden border-violet-200 bg-violet-50 text-violet-800 sm:inline-flex">{t("30 psychology questions")}</Badge></div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {detail.analysis.psychologyProfile.map((item) => <Card key={item.trait} className={`gap-0 py-0 ${item.band === "strong" ? "border-emerald-200 bg-emerald-50/50" : item.band === "develop" ? "border-amber-200 bg-amber-50/50" : "border-rose-200 bg-rose-50/60"}`}><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-slate-950">{item.label}</p><Badge variant="outline" className={`mt-2 ${item.band === "strong" ? "border-emerald-200 bg-white text-emerald-800" : item.band === "develop" ? "border-amber-200 bg-white text-amber-800" : "border-rose-200 bg-white text-rose-800"}`}>{item.bandLabel}</Badge></div><span className="text-2xl font-black text-slate-950">{item.percentage}%</span></div><Progress value={item.percentage} className={`mt-4 h-2 bg-white ${item.band === "strong" ? "[&_[data-slot=progress-indicator]]:bg-emerald-500" : item.band === "develop" ? "[&_[data-slot=progress-indicator]]:bg-amber-500" : "[&_[data-slot=progress-indicator]]:bg-rose-500"}`} /><p className="mt-4 text-sm leading-6 text-slate-700">{item.interpretation}</p><div className="mt-3 rounded-xl border border-white bg-white/80 p-3 text-xs leading-5 text-slate-600"><strong>{t("Manager follow-up:")}</strong> {item.managerFollowUp}</div></CardContent></Card>)}
+            </div>
+            <p className="mt-3 rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-xs leading-5 text-violet-900/80">{t("This profile describes job-related response patterns. It is not a clinical test, personality diagnosis, or substitute for a structured interview.")}</p>
+          </section>}
 
           <section>
             <div className="mb-3 flex items-end justify-between gap-3"><div><h3 className="text-lg font-black text-slate-950">{t("SWOT hiring analysis")}</h3><p className="mt-1 text-sm text-slate-500">{t("Potential impact if this candidate joins the requested role.")}</p></div><Badge variant="outline" className="hidden border-cyan-200 bg-cyan-50 text-cyan-800 sm:inline-flex">{t("Evidence-based")}</Badge></div>

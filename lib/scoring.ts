@@ -5,10 +5,12 @@ import {
   getAssessmentQuestions,
   questionPrompt,
   type AssessmentSelection,
+  type PsychologyTrait,
   type QuestionCategory,
 } from "@/lib/question-bank";
 import { positionForRole, type AssessmentProfile } from "@/lib/industry-catalog";
 import { translate, type AppLocale } from "@/lib/i18n";
+import { localizedPsychologyAnalysis } from "@/lib/work-psychology-localizations";
 
 export const categoryWeights: Record<QuestionCategory, number> = {
   work_style: 15,
@@ -51,6 +53,7 @@ export type AnswerDetail = {
   isCritical: boolean;
   reviewNote: string;
   contextLead?: import("@/lib/question-bank").QuestionContextLead;
+  psychologyTrait?: PsychologyTrait;
 };
 
 export type ScoreResult = {
@@ -129,6 +132,7 @@ export function scoreSubmission(
       ].has(question.sourceQuestionId || question.id),
       reviewNote: question.reviewNote,
       contextLead: question.contextLead,
+      psychologyTrait: question.psychologyTrait,
     };
   });
 
@@ -242,9 +246,38 @@ function estimatedImprovementTimeline(percentage: number) {
   return "1–2 weeks";
 }
 
+const psychologyTraitOrder: PsychologyTrait[] = [
+  "integrity",
+  "conscientiousness",
+  "teamwork",
+  "service_orientation",
+  "emotional_regulation",
+  "adaptability",
+];
+
 export function buildDetailedAnalysis(result: ScoreResult, locale: AppLocale = "en") {
   const t = (source: string, values: Record<string, string | number> = {}) => translate(locale, source, values);
   const categoryLabel = (category: QuestionCategory) => t(categoryLabels[category]);
+  const psychologyProfile = psychologyTraitOrder.flatMap((trait) => {
+    const answers = result.answerDetails.filter((answer) => answer.psychologyTrait === trait);
+    if (!answers.length) return [];
+    const score = answers.reduce((sum, answer) => sum + answer.points, 0);
+    const max = answers.reduce((sum, answer) => sum + answer.maxPoints, 0);
+    const percentage = percent(score, max);
+    const band = percentage >= 80 ? "strong" as const : percentage >= 65 ? "develop" as const : "priority" as const;
+    const copy = localizedPsychologyAnalysis(locale, trait, band);
+    return [{
+      trait,
+      label: copy.label,
+      score,
+      max,
+      percentage,
+      band,
+      bandLabel: copy.bandLabel,
+      interpretation: copy.interpretation,
+      managerFollowUp: copy.managerFollowUp,
+    }];
+  });
   const ordered = (Object.keys(result.categoryScores) as QuestionCategory[])
     .map((category) => ({ category, ...result.categoryScores[category] }))
     .sort((a, b) => b.percentage - a.percentage);
@@ -413,12 +446,18 @@ export function buildDetailedAnalysis(result: ScoreResult, locale: AppLocale = "
     developmentPlan,
     developmentNote:
       t("Training times are planning estimates based on written-score gaps, not guarantees. A manager should adjust them after observing learning pace and job performance; never use a disability or other protected characteristic to set the timeline."),
+    psychologyProfile,
     strengths,
     priorities,
     reviewItems,
-    interviewPrompts: [...new Set(focusCategories)].map(
-      (category) => t(categoryInterviewPrompts[category]),
-    ),
+    interviewPrompts: [
+      ...psychologyProfile
+        .filter((item) => item.percentage < 80)
+        .sort((left, right) => left.percentage - right.percentage)
+        .slice(0, 2)
+        .map((item) => item.managerFollowUp),
+      ...[...new Set(focusCategories)].map((category) => t(categoryInterviewPrompts[category])),
+    ].slice(0, 5),
     failedRules: [
       ...(result.fitPercentage < passingRules.overall
         ? [t("Overall fit is below {minimum}%.", { minimum: passingRules.overall })]
@@ -434,7 +473,7 @@ export function buildDetailedAnalysis(result: ScoreResult, locale: AppLocale = "
         : []),
     ],
     methodology:
-      t("Weighted score: Role Technical Knowledge 60%, Work Style & Reliability 15%, Communication 12.5%, and Customer Problem Solving 12.5%. The first three behavioral sections contain 30 questions total; the role section contains 45 questions. Passing requires 75% overall, every section minimum, and no zero-point answer on a designated critical item."),
+      t("Weighted score: Role Technical Knowledge 60% and Work Psychology 40% (Integrity & Reliability 15%, Teamwork & Service 12.5%, Emotional Control & Adaptability 12.5%). The work-psychology inventory contains 30 questions across six traits; the role section contains 45 technical questions. Passing requires 75% overall, every section minimum, and no zero-point answer on a designated critical item."),
     limitation:
       t("This is a job-related situational assessment, not a clinical or validated psychological diagnosis. Use it consistently as one input alongside a structured interview, references, and any reasonable accommodation—not as the sole hiring decision."),
   };

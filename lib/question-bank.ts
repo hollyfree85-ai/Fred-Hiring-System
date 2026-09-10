@@ -26,6 +26,14 @@ export type QuestionCategory =
   | "problem_solving"
   | "technical";
 
+export type PsychologyTrait =
+  | "integrity"
+  | "conscientiousness"
+  | "teamwork"
+  | "service_orientation"
+  | "emotional_regulation"
+  | "adaptability";
+
 type ScoredChoice = readonly [text: string, points: number];
 
 export type AssessmentQuestion = {
@@ -38,6 +46,7 @@ export type AssessmentQuestion = {
   contextLead?: QuestionContextLead;
   assessmentProfile?: AssessmentProfile;
   restaurantTags?: string[];
+  psychologyTrait?: PsychologyTrait;
 };
 
 export type PublicQuestion = Omit<AssessmentQuestion, "reviewNote" | "options"> & {
@@ -52,6 +61,10 @@ export type AssessmentSelection = {
 };
 
 export type QuestionContextLead =
+  | "steady_work"
+  | "time_pressure"
+  | "independent_work"
+  | "team_collaboration"
   | "opening_preparation"
   | "peak_service"
   | "shift_handoff"
@@ -93,6 +106,74 @@ const q = (
   })),
   reviewNote,
 });
+
+const frequencyChoices = [
+  "Almost always true for me",
+  "Often true for me",
+  "Sometimes true for me",
+  "Rarely true for me",
+] as const;
+
+const psychologyQuestion = (
+  id: string,
+  category: Exclude<QuestionCategory, "technical">,
+  psychologyTrait: PsychologyTrait,
+  prompt: string,
+  reviewNote: string,
+  reverseScored = false,
+): AssessmentQuestion => ({
+  id,
+  category,
+  psychologyTrait,
+  prompt,
+  options: frequencyChoices.map((text, index) => ({
+    id: `${id}-${String.fromCharCode(97 + index)}`,
+    text,
+    points: reverseScored ? index : 3 - index,
+  })),
+  reviewNote,
+});
+
+// A non-clinical work-psychology inventory. These items measure six job-related
+// behavioral tendencies and deliberately avoid restaurant procedures so the
+// first 30 questions remain distinct from the 45-question technical section.
+const workPsychology: AssessmentQuestion[] = [
+  psychologyQuestion("WP01", "work_style", "integrity", "I report my own mistake promptly, even when nobody else has noticed it.", "Looks for honest self-reporting and willingness to take responsibility."),
+  psychologyQuestion("WP02", "work_style", "integrity", "I sometimes hide a small error if admitting it would slow the work down.", "Checks whether speed is placed ahead of honesty and accurate reporting.", true),
+  psychologyQuestion("WP03", "work_style", "integrity", "I give an accurate account of what happened, even when it may reflect poorly on me.", "Looks for factual reporting when personal accountability is uncomfortable."),
+  psychologyQuestion("WP04", "work_style", "integrity", "I am willing to bend an inconvenient rule without asking first.", "Checks respect for approved policy and authorization boundaries.", true),
+  psychologyQuestion("WP05", "work_style", "integrity", "I protect private information even when sharing it could make me feel included.", "Looks for discretion and respect for confidential information."),
+
+  psychologyQuestion("WP06", "work_style", "conscientiousness", "I check important details before I say a task is complete.", "Looks for dependable checking habits and completion accuracy."),
+  psychologyQuestion("WP07", "work_style", "conscientiousness", "When work becomes repetitive, I tend to stop checking my accuracy.", "Checks whether attention to detail declines during repetitive work.", true),
+  psychologyQuestion("WP08", "work_style", "conscientiousness", "I organize my priorities so important work is finished on time.", "Looks for planning, prioritization, and time ownership."),
+  psychologyQuestion("WP09", "work_style", "conscientiousness", "I follow through on commitments without needing repeated reminders.", "Looks for reliable follow-through and self-management."),
+  psychologyQuestion("WP10", "work_style", "conscientiousness", "If I may miss a deadline or arrive late, I communicate it early.", "Looks for proactive communication when a commitment may be missed."),
+
+  psychologyQuestion("WP11", "communication", "teamwork", "After securing my own responsibilities, I offer help when a teammate is overloaded.", "Looks for balanced teamwork without abandoning assigned responsibilities."),
+  psychologyQuestion("WP12", "communication", "teamwork", "I listen to another person's full point before defending my own view.", "Looks for active listening and openness during disagreement."),
+  psychologyQuestion("WP13", "communication", "teamwork", "During a disagreement, I focus more on solving the issue than on winning the argument.", "Looks for constructive conflict behavior and shared problem solving."),
+  psychologyQuestion("WP14", "communication", "teamwork", "I share the information another person needs for a clean handoff.", "Looks for complete, timely handoff communication."),
+  psychologyQuestion("WP15", "communication", "teamwork", "I avoid helping with work that was not specifically assigned to me.", "Checks willingness to support reasonable team needs.", true),
+
+  psychologyQuestion("WP16", "communication", "service_orientation", "I acknowledge a person promptly, even when I cannot help them immediately.", "Looks for respectful acknowledgment and expectation setting."),
+  psychologyQuestion("WP17", "communication", "service_orientation", "I remain respectful when the other person is impatient or demanding.", "Looks for consistent courtesy in difficult interactions."),
+  psychologyQuestion("WP18", "communication", "service_orientation", "I clarify what someone needs instead of assuming I already understand.", "Looks for curiosity, careful listening, and avoidance of assumptions."),
+  psychologyQuestion("WP19", "communication", "service_orientation", "I follow up when needed to make sure a request was actually resolved.", "Looks for ownership through completion rather than a quick handoff."),
+  psychologyQuestion("WP20", "communication", "service_orientation", "If I did not cause a problem, I do not feel responsible for helping solve it.", "Checks whether ownership disappears when someone else caused the issue.", true),
+
+  psychologyQuestion("WP21", "problem_solving", "emotional_regulation", "Under pressure, I slow down enough to protect accuracy and safety.", "Looks for controlled decision making rather than rushed reactions."),
+  psychologyQuestion("WP22", "problem_solving", "emotional_regulation", "Corrective feedback can affect my tone for the rest of the work period.", "Checks recovery after feedback and control of outward reactions.", true),
+  psychologyQuestion("WP23", "problem_solving", "emotional_regulation", "I can reset and refocus after a difficult interaction.", "Looks for emotional recovery and sustained professionalism."),
+  psychologyQuestion("WP24", "problem_solving", "emotional_regulation", "When several people need something at once, I stay calm and decide what comes first.", "Looks for composure and prioritization under competing demands."),
+  psychologyQuestion("WP25", "problem_solving", "emotional_regulation", "Even when frustrated, I keep my words and body language professional.", "Looks for visible self-control and respectful conduct."),
+
+  psychologyQuestion("WP26", "problem_solving", "adaptability", "I adjust quickly when priorities change unexpectedly.", "Looks for flexibility without losing focus or standards."),
+  psychologyQuestion("WP27", "problem_solving", "adaptability", "When a task is unfamiliar, I ask focused questions and learn the approved method.", "Looks for learning agility and appropriate help seeking."),
+  psychologyQuestion("WP28", "problem_solving", "adaptability", "After a new process is explained, I usually keep using my old method.", "Checks willingness to adopt updated procedures.", true),
+  psychologyQuestion("WP29", "problem_solving", "adaptability", "I can work productively with people whose work style differs from mine.", "Looks for flexibility across different team styles."),
+  psychologyQuestion("WP30", "problem_solving", "adaptability", "When the original plan fails, I look for the next workable step instead of getting stuck.", "Looks for practical resilience and solution-focused adjustment."),
+];
 
 const workStyle: AssessmentQuestion[] = [
   q("WS01", "work_style", "You notice that you entered one item incorrectly after the guest has already paid. What do you do?", [
@@ -1235,19 +1316,31 @@ for (const [profile, questions] of Object.entries(profileQuestions) as Array<[As
 }
 
 export const categoryLabels: Record<QuestionCategory, string> = {
-  work_style: "Work Style & Reliability",
-  communication: "Communication",
-  problem_solving: "Customer Problem Solving",
+  work_style: "Work Psychology · Integrity & Reliability",
+  communication: "Work Psychology · Teamwork & Service",
+  problem_solving: "Work Psychology · Emotional Control & Adaptability",
   technical: "Role Technical Knowledge",
 };
 
-const behavioralBases = [
+const legacyBehavioralBases = [
   ...workStyle.slice(0, 10),
   ...communication.slice(0, 10),
   ...problemSolving.slice(0, 10),
 ].map((question) => ({ ...question, sourceQuestionId: question.id }));
 
+const behavioralBases = workPsychology.map((question) => ({
+  ...question,
+  sourceQuestionId: question.id,
+}));
+
 const behavioralContextLeads: QuestionContextLead[] = [
+  "steady_work",
+  "time_pressure",
+  "independent_work",
+  "team_collaboration",
+];
+
+const legacyBehavioralContextLeads: QuestionContextLead[] = [
   "opening_preparation",
   "peak_service",
   "shift_handoff",
@@ -1276,7 +1369,18 @@ export const behavioralQuestionBank = behavioralBases.flatMap((question) => [
   ),
 ]);
 
+const legacyBehavioralQuestionBank = legacyBehavioralBases.flatMap((question) => [
+  question,
+  ...legacyBehavioralContextLeads.map((contextLead, index) =>
+    contextualForm(question, `${question.id}-B${index + 1}`, contextLead),
+  ),
+]);
+
 const contextTags: Record<QuestionContextLead, string[]> = {
+  steady_work: [],
+  time_pressure: [],
+  independent_work: [],
+  team_collaboration: [],
   opening_preparation: [],
   peak_service: ["high_volume"],
   shift_handoff: [],
@@ -1381,7 +1485,8 @@ function groupBySource(questions: AssessmentQuestion[]) {
 const behavioralFormsBySource = groupBySource(behavioralQuestionBank);
 const technicalFormsBySource = groupBySource(technicalQuestionBank);
 const questionById = new Map(
-  [...behavioralQuestionBank, ...technicalQuestionBank].map((question) => [question.id, question] as const),
+  [...behavioralQuestionBank, ...legacyBehavioralQuestionBank, ...technicalQuestionBank]
+    .map((question) => [question.id, question] as const),
 );
 
 function chooseBehavioralForms(seed: string) {
@@ -1506,6 +1611,10 @@ export function getAssessmentQuestions(role: CandidateRole, selection?: Assessme
 
 export function questionContextLeadText(contextLead: QuestionContextLead) {
   const labels: Record<QuestionContextLead, string> = {
+    steady_work: "Thinking about your usual work habits:",
+    time_pressure: "When work becomes busy or time is limited:",
+    independent_work: "When you are working without close supervision:",
+    team_collaboration: "When you are working with other people:",
     opening_preparation: "During opening preparation:",
     peak_service: "During peak service:",
     shift_handoff: "During a shift handoff:",
@@ -1547,7 +1656,8 @@ export function toPublicQuestion(question: AssessmentQuestion): PublicQuestion {
     options: question.options.map(({ id, text }) => ({ id, text })),
     sourceQuestionId: question.sourceQuestionId || question.id,
     contextLead: question.contextLead,
+    psychologyTrait: question.psychologyTrait,
   };
 }
 
-export const TEST_VERSION = "2026.09.4";
+export const TEST_VERSION = "2026.09.5";

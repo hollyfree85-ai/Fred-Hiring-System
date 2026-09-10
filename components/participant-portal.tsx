@@ -53,7 +53,7 @@ import {
   type RestaurantConceptId,
 } from "@/lib/industry-catalog";
 import type { CandidateBiodata, CandidateIdentity, PublicQuestion } from "@/lib/client-types";
-import { useI18n } from "@/lib/i18n";
+import { intlLocale, useI18n } from "@/lib/i18n";
 import { localizeQuestions } from "@/lib/question-localization";
 
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -123,6 +123,18 @@ export function ParticipantPortal() {
   const currentQuestion = questions[currentIndex];
   const selectedFamily = jobFamilies.find((family) => family.id === identity.jobFamily) || jobFamilies[3];
   const selectedRestaurant = restaurantConcepts.find((concept) => concept.id === identity.restaurantConcept);
+  const collator = useMemo(
+    () => new Intl.Collator(intlLocale(locale), { sensitivity: "base" }),
+    [locale],
+  );
+  const sortedJobFamilies = useMemo(
+    () => [...jobFamilies].sort((left, right) => collator.compare(t(left.label), t(right.label))),
+    [collator, t],
+  );
+  const sortedPositions = useMemo(
+    () => [...selectedFamily.positions].sort((left, right) => collator.compare(t(left.label), t(right.label))),
+    [collator, selectedFamily, t],
+  );
 
   useEffect(() => {
     if (stage !== "test") return;
@@ -330,12 +342,12 @@ export function ParticipantPortal() {
               {t("Show how you handle a real restaurant shift.")}
             </h2>
             <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
-              {t("The assessment combines job-focused work judgment with technical questions tailored to the position you choose.")}
+              {t("The assessment combines 30 non-clinical work-psychology questions with 45 technical questions tailored to the position you choose.")}
             </p>
             <div className="mt-9 grid gap-3 sm:grid-cols-3 lg:mt-auto">
               {[
                 ["75", t("Total questions"), ClipboardList],
-                ["30 / 150", t("Random work judgment"), ShieldCheck],
+                ["30 / 150", t("Work psychology"), ShieldCheck],
                 ["45 / 1,000", t("Tailored technical"), BriefcaseBusiness],
               ].map(([value, label, Icon]) => (
                 <div key={String(label)} className="rounded-2xl border border-white/10 bg-white/[.06] p-4 backdrop-blur-sm">
@@ -382,29 +394,33 @@ export function ParticipantPortal() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t("Job family")}</Label>
+                <Label><span className="mr-1 text-cyan-700">1.</span> {t("Job family")}</Label>
                 <Select
                   value={identity.jobFamily}
                   onValueChange={(value) => {
                     const family = jobFamilies.find((item) => item.id === value) || jobFamilies[0];
+                    const firstPosition = [...family.positions].sort((left, right) => collator.compare(t(left.label), t(right.label)))[0];
                     setIdentity((current) => ({
                       ...current,
                       jobFamily: family.id,
-                      role: family.positions[0].id as CandidateRole,
+                      role: firstPosition.id as CandidateRole,
                     }));
                   }}
                 >
                   <SelectTrigger className="h-12 w-full rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>{jobFamilies.map((family) => <SelectItem key={family.id} value={family.id}>{t(family.label)}</SelectItem>)}</SelectContent>
+                  <SelectContent className="max-h-[min(60vh,420px)]">{sortedJobFamilies.map((family) => <SelectItem key={family.id} value={family.id}><span className="flex w-full items-center justify-between gap-3"><span>{t(family.label)}</span><span className="text-xs text-slate-400">{t("{count} positions", { count: family.positions.length })}</span></span></SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>{t("Position requested")}</Label>
+                <Label><span className="mr-1 text-cyan-700">2.</span> {t("Position requested")}</Label>
                 <Select value={identity.role} onValueChange={(value) => setIdentity((current) => ({ ...current, role: value as CandidateRole }))}>
                   <SelectTrigger className="h-12 w-full rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>{selectedFamily.positions.map((position) => <SelectItem key={position.id} value={position.id}>{t(position.label)}</SelectItem>)}</SelectContent>
+                  <SelectContent className="max-h-[min(60vh,420px)]">{sortedPositions.map((position) => <SelectItem key={position.id} value={position.id}>{t(position.label)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 px-4 py-3 text-xs leading-5 text-cyan-950">
+              <strong>{t("{family} selected", { family: t(selectedFamily.label) })}</strong> — {t("all {count} positions in this job family are shown above in alphabetical order.", { count: selectedFamily.positions.length })}
             </div>
             <div className="space-y-2">
               <Label>{t("Experience level")}</Label>
@@ -523,6 +539,7 @@ export function ParticipantPortal() {
             <Progress value={((currentIndex + 1) / questions.length) * 100} className="quiz-main-progress mt-5 h-2.5 bg-white/10 [&_[data-slot=progress-indicator]]:bg-[linear-gradient(90deg,#5eeaf2,#ff805f)]" />
           </div>
           <CardContent className="quiz-question-content px-5 py-7 sm:px-8 sm:py-9">
+            {currentIndex < 30 ? <div className="mb-6 flex gap-3 rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm leading-6 text-violet-950"><ShieldCheck className="mt-0.5 size-5 shrink-0 text-violet-700" /><span><strong>{t("Work-psychology statement.")}</strong> {t("Answer based on how you usually behave at work—not the answer that merely sounds ideal.")}</span></div> : currentIndex === 30 ? <div className="mb-6 flex gap-3 rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-950"><BriefcaseBusiness className="mt-0.5 size-5 shrink-0 text-cyan-700" /><span><strong>{t("Technical section starts here.")}</strong> {t("The next 45 questions are tailored to the restaurant concept, position, and experience level you selected.")}</span></div> : null}
             <fieldset>
               <legend className="max-w-3xl text-xl font-black leading-8 tracking-[-0.02em] text-slate-950 sm:text-2xl">{currentQuestion.prompt}</legend>
               <RadioGroup value={answers[currentQuestion.id] ?? ""} onValueChange={(value) => { setAnswers((current) => ({ ...current, [currentQuestion.id]: value })); setError(""); }} className="mt-7 gap-3">

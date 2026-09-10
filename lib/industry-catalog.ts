@@ -227,6 +227,7 @@ export const jobFamilies = [
       { id: "hibachi_server", label: "Hibachi Server", profile: "server", relatedProfiles: ["host_cashier", "busser_runner"], alcoholService: true },
       { id: "sushi_server", label: "Sushi Server", profile: "server", relatedProfiles: ["host_cashier", "sushi_cook"], alcoholService: true },
       { id: "banquet_server", label: "Banquet Server", profile: "server", relatedProfiles: ["busser_runner", "host_cashier"], alcoholService: true },
+      { id: "server_assistant_service", label: "Server Assistant", profile: "busser_runner", relatedProfiles: ["server", "host_cashier"] },
     ],
   },
   {
@@ -285,7 +286,6 @@ export const jobFamilies = [
       { id: "sushi_chef", label: "Sushi Chef", profile: "sushi_chef", relatedProfiles: ["sushi_cook", "sushi_prep"] },
       { id: "head_sushi_chef", label: "Head Sushi Chef", profile: "sushi_chef", relatedProfiles: ["assistant_manager", "sushi_cook", "sushi_prep"] },
       { id: "sushi_prep", label: "Sushi Prep Chef", profile: "sushi_prep", relatedProfiles: ["sushi_cook", "cook_prep"] },
-      { id: "sushi_cook", label: "Sushi Cook", profile: "sushi_cook", relatedProfiles: ["sushi_prep", "sushi_chef"] },
       { id: "sushi_helper", label: "Sushi Helper / Apprentice", profile: "sushi_prep", relatedProfiles: ["sushi_cook", "cook_prep"] },
       { id: "omakase_chef", label: "Omakase Chef", profile: "sushi_chef", relatedProfiles: ["sushi_cook", "assistant_manager"] },
       { id: "sashimi_chef", label: "Sashimi Chef", profile: "sushi_chef", relatedProfiles: ["sushi_cook", "sushi_prep"] },
@@ -356,18 +356,30 @@ export const jobFamilies = [
 ] as const satisfies readonly JobFamilyDefinition[];
 
 export type JobFamilyId = (typeof jobFamilies)[number]["id"];
-export type CandidateRole = (typeof jobFamilies)[number]["positions"][number]["id"];
+type SelectableCandidateRole = (typeof jobFamilies)[number]["positions"][number]["id"];
+export type CandidateRole = SelectableCandidateRole | "sushi_cook";
 
-export const positions = jobFamilies.flatMap((family) =>
+export const selectablePositions = jobFamilies.flatMap((family) =>
   family.positions.map((position) => ({ ...position, familyId: family.id as JobFamilyId })),
 );
 
-export const candidateRoles = positions.map((position) => position.id) as CandidateRole[];
+// Kept outside the applicant selector so historical submissions made before
+// the September 2026 catalog update can still be opened and rescored.
+const archivedPositions = [{
+  id: "sushi_cook",
+  label: "Sushi Cook",
+  profile: "sushi_cook",
+  relatedProfiles: ["sushi_prep", "sushi_chef"],
+  familyId: "japanese_sushi",
+}] as const satisfies readonly (PositionDefinition & { familyId: JobFamilyId })[];
+
+export const positions = [...selectablePositions, ...archivedPositions];
+export const candidateRoles = selectablePositions.map((position) => position.id) as CandidateRole[];
 export const roleLabels = Object.fromEntries(positions.map((position) => [position.id, position.label])) as Record<CandidateRole, string>;
 export const jobFamilyLabels = Object.fromEntries(jobFamilies.map((family) => [family.id, family.label])) as Record<JobFamilyId, string>;
 
 export function isCandidateRole(value: unknown): value is CandidateRole {
-  return typeof value === "string" && candidateRoles.includes(value as CandidateRole);
+  return typeof value === "string" && positions.some((position) => position.id === value);
 }
 
 export function isJobFamily(value: unknown): value is JobFamilyId {
@@ -387,7 +399,8 @@ export function positionForRole(role: CandidateRole) {
 }
 
 export function familyForRole(role: CandidateRole) {
-  return jobFamilies.find((family) => family.positions.some((position) => position.id === role))!;
+  const familyId = positionForRole(role).familyId;
+  return jobFamilies.find((family) => family.id === familyId)!;
 }
 
 export function restaurantConceptById(id: RestaurantConceptId) {

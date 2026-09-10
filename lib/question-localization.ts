@@ -1,6 +1,7 @@
 import type { AnswerReview, PublicQuestion } from "@/lib/client-types";
 import type { AppLocale } from "@/lib/i18n";
 import type { QuestionContextLead } from "@/lib/question-bank";
+import { psychologyLocalizedQuestion } from "@/lib/work-psychology-localizations";
 
 type LocalizedQuestion = {
   prompt: string;
@@ -18,6 +19,10 @@ const cache = new Map<AppLocale, Promise<QuestionCatalog | null>>();
 
 const contextLeadTranslations: Record<Exclude<AppLocale, "en">, Record<QuestionContextLead, string>> = {
   id: {
+    steady_work: "Jika mengingat kebiasaan kerja Anda sehari-hari:",
+    time_pressure: "Saat pekerjaan sedang sibuk atau waktunya terbatas:",
+    independent_work: "Saat Anda bekerja tanpa pengawasan langsung:",
+    team_collaboration: "Saat Anda bekerja bersama orang lain:",
     opening_preparation: "Saat persiapan buka restoran:",
     peak_service: "Saat jam pelayanan tersibuk:",
     shift_handoff: "Saat serah terima shift:",
@@ -43,6 +48,10 @@ const contextLeadTranslations: Record<Exclude<AppLocale, "en">, Record<QuestionC
     lead_quality: "Untuk lead yang bertanggung jawab atas quality control:",
   },
   es: {
+    steady_work: "Al pensar en tus hábitos de trabajo habituales:",
+    time_pressure: "Cuando hay mucho trabajo o poco tiempo:",
+    independent_work: "Cuando trabajas sin supervisión directa:",
+    team_collaboration: "Cuando trabajas con otras personas:",
     opening_preparation: "Durante la preparación antes de abrir:",
     peak_service: "Durante la hora de mayor actividad:",
     shift_handoff: "Durante el cambio de turno:",
@@ -68,6 +77,7 @@ const contextLeadTranslations: Record<Exclude<AppLocale, "en">, Record<QuestionC
     lead_quality: "Para un líder responsable del control de calidad:",
   },
   "zh-CN": {
+    steady_work: "想想你平时的工作习惯：", time_pressure: "工作繁忙或时间紧张时：", independent_work: "在没有直接监督的情况下工作时：", team_collaboration: "与他人一起工作时：",
     opening_preparation: "在开店准备期间：", peak_service: "在营业高峰期间：", shift_handoff: "在交接班期间：", closing_duties: "在闭店工作期间：",
     full_service: "在全服务餐厅：", fine_dining: "在高档或精致餐饮环境：", counter_service: "在高客流的柜台服务餐厅：", off_premise: "在外带或外送服务中：",
     buffet_service: "在自助餐或自助服务运营中：", bar_service: "在酒吧服务期间：", seafood_service: "在海鲜餐厅：", seafood_boil: "在海鲜手抓餐厅：",
@@ -76,6 +86,7 @@ const contextLeadTranslations: Record<Exclude<AppLocale, "en">, Record<QuestionC
     entry_supervised: "对于在监督下工作的初级员工：", experienced_peak: "对于在繁忙班次工作的资深员工：", lead_quality: "对于负责质量控制的领班：",
   },
   "zh-TW": {
+    steady_work: "想想你平時的工作習慣：", time_pressure: "工作繁忙或時間緊張時：", independent_work: "在沒有直接監督的情況下工作時：", team_collaboration: "與他人一起工作時：",
     opening_preparation: "在開店準備期間：", peak_service: "在營業高峰期間：", shift_handoff: "在交接班期間：", closing_duties: "在閉店工作期間：",
     full_service: "在全服務餐廳：", fine_dining: "在高檔或精緻餐飲環境：", counter_service: "在高客流的櫃檯服務餐廳：", off_premise: "在外帶或外送服務中：",
     buffet_service: "在自助餐或自助服務營運中：", bar_service: "在酒吧服務期間：", seafood_service: "在海鮮餐廳：", seafood_boil: "在海鮮手抓餐廳：",
@@ -110,9 +121,10 @@ export async function loadQuestionCatalog(locale: AppLocale) {
 
 export async function localizeQuestions(questions: PublicQuestion[], locale: AppLocale) {
   const catalog = await loadQuestionCatalog(locale);
-  if (!catalog) return questions;
+  if (locale === "en") return questions;
   return questions.map((question) => {
-    const localized = catalog.questions[question.sourceQuestionId || question.id];
+    const sourceId = question.sourceQuestionId || question.id;
+    const localized = psychologyLocalizedQuestion(sourceId, locale) || catalog?.questions[sourceId];
     if (!localized) return question;
     const lead = localizedContextLead(locale, question.contextLead);
     return {
@@ -128,9 +140,10 @@ export async function localizeQuestions(questions: PublicQuestion[], locale: App
 
 export async function localizeAnswerReviews(answers: AnswerReview[], locale: AppLocale) {
   const catalog = await loadQuestionCatalog(locale);
-  if (!catalog) return answers;
+  if (locale === "en") return answers;
   return answers.map((answer) => {
-    const localized = catalog.questions[answer.sourceQuestionId || answer.questionId];
+    const sourceId = answer.sourceQuestionId || answer.questionId;
+    const localized = psychologyLocalizedQuestion(sourceId, locale) || catalog?.questions[sourceId];
     if (!localized) return answer;
     const lead = localizedContextLead(locale, answer.contextLead);
     return {

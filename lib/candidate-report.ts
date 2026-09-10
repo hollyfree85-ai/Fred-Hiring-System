@@ -100,24 +100,24 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
   const t = (source: string, values: Record<string, string | number> = {}) => translate(locale, source, values);
   const bio = detail.biodata;
   const heading = (text: string) => addWrapped(rows, isCjkLocale(locale) ? text : text.toUpperCase(), {
-    size: 12,
-    leading: 17,
+    size: 16,
+    leading: 23,
     bold: true,
     tone: "accent",
     gapAfter: 5,
   }, locale);
   const item = (label: string, value: string) => {
     addWrapped(rows, `${label}: ${value || t("Not provided")}`, {
-      size: 9.5,
-      leading: 13,
-      gapAfter: 2,
+      size: 14,
+      leading: 20,
+      gapAfter: 3,
     }, locale);
   };
   const bullet = (value: string, tone: ReportLine["tone"] = "default") => {
     addWrapped(rows, `- ${value}`, {
-      size: 9.5,
-      leading: 13,
-      indent: 10,
+      size: 14,
+      leading: 20,
+      indent: 12,
       tone,
       gapAfter: 2,
     }, locale);
@@ -125,21 +125,21 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
   const spacer = (height = 8) => rows.push({ text: "", size: 8, leading: height });
 
   addWrapped(rows, "FRED HIRING SYSTEM", {
-    size: 10,
-    leading: 14,
+    size: 12,
+    leading: 17,
     bold: true,
     tone: "accent",
     gapAfter: 4,
   }, locale);
   addWrapped(rows, t("Candidate Assessment Report"), {
-    size: 21,
-    leading: 25,
+    size: 26,
+    leading: 31,
     bold: true,
     gapAfter: 3,
   }, locale);
   addWrapped(rows, t("CONFIDENTIAL - Authorized manager use only"), {
-    size: 8.5,
-    leading: 12,
+    size: 11,
+    leading: 16,
     bold: true,
     tone: "warning",
     gapAfter: 12,
@@ -162,8 +162,8 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
 
   heading(t("Assessment conclusion"));
   addWrapped(rows, detail.analysis.summary, {
-    size: 10,
-    leading: 14,
+    size: 14,
+    leading: 20,
     gapAfter: 8,
   }, locale);
 
@@ -171,11 +171,43 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
   item(t("Position-fit score"), `${detail.analysis.hiringRecommendation.fitPercentage}%`);
   item(t("Recommendation"), detail.analysis.hiringRecommendation.label);
   addWrapped(rows, detail.analysis.hiringRecommendation.rationale, {
-    size: 9.5,
-    leading: 13,
+    size: 14,
+    leading: 20,
     tone: detail.analysis.hiringRecommendation.status === "recommended" ? "success" : "warning",
     gapAfter: 8,
   }, locale);
+
+  if (detail.analysis.psychologyProfile.length) {
+    heading(t("Work psychology profile"));
+    addWrapped(rows, t("Six non-clinical work traits based on the first 30 responses."), {
+      size: 14,
+      leading: 20,
+      tone: "muted",
+      gapAfter: 6,
+    }, locale);
+    detail.analysis.psychologyProfile.forEach((trait) => {
+      addWrapped(rows, `${trait.label} — ${trait.percentage}% · ${trait.bandLabel}`, {
+        size: 14,
+        leading: 20,
+        bold: true,
+        tone: trait.band === "strong" ? "success" : "warning",
+        gapAfter: 2,
+      }, locale);
+      addWrapped(rows, trait.interpretation, {
+        size: 14,
+        leading: 20,
+        gapAfter: 2,
+      }, locale);
+      bullet(`${t("Manager follow-up:")} ${trait.managerFollowUp}`, "accent");
+      spacer(4);
+    });
+    addWrapped(rows, t("This profile describes job-related response patterns. It is not a clinical test, personality diagnosis, or substitute for a structured interview."), {
+      size: 14,
+      leading: 20,
+      tone: "warning",
+      gapAfter: 8,
+    }, locale);
+  }
 
   heading(t("SWOT hiring analysis"));
   ([
@@ -185,8 +217,8 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
     [t("Threats / hiring risks"), detail.analysis.swot.threats, "warning"],
   ] as const).forEach(([label, entries, tone]) => {
     addWrapped(rows, label, {
-      size: 10,
-      leading: 14,
+      size: 14,
+      leading: 20,
       bold: true,
       tone,
       gapAfter: 2,
@@ -198,8 +230,8 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
   heading(t("If hired - improvement plan"));
   detail.analysis.developmentPlan.forEach((plan) => {
     addWrapped(rows, `${plan.priority}. ${plan.area}${plan.currentPercentage === null ? "" : ` - ${t("current score {percentage}%", { percentage: plan.currentPercentage })}`}`, {
-      size: 9.5,
-      leading: 13,
+      size: 14,
+      leading: 20,
       bold: true,
       tone: "accent",
       gapAfter: 1,
@@ -210,8 +242,8 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
     spacer(3);
   }, locale);
   addWrapped(rows, detail.analysis.developmentNote, {
-    size: 8.5,
-    leading: 12,
+    size: 14,
+    leading: 20,
     tone: "muted",
     gapAfter: 8,
   }, locale);
@@ -224,8 +256,8 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
 
   heading(t("Decision criteria"));
   addWrapped(rows, detail.analysis.methodology, {
-    size: 9.5,
-    leading: 13,
+    size: 14,
+    leading: 20,
     gapAfter: 5,
   }, locale);
   if (detail.analysis.failedRules.length) {
@@ -280,8 +312,8 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
   heading(t("Priority answer evidence"));
   detail.analysis.reviewItems.forEach((answer) => {
     addWrapped(rows, `${answer.questionId} - ${answer.categoryLabel} - ${answer.points}/${answer.maxPoints}${answer.isCritical ? ` - ${t("CRITICAL")}` : ""}`, {
-      size: 9.5,
-      leading: 13,
+      size: 14,
+      leading: 20,
       bold: true,
       tone: answer.isCritical && answer.points === 0 ? "warning" : "default",
       gapAfter: 1,
@@ -295,8 +327,8 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
   heading(t("Complete answer appendix - all 75 items"));
   detail.answers.forEach((answer) => {
     addWrapped(rows, `${answer.questionId} - ${answer.categoryLabel} - ${answer.points}/${answer.maxPoints}${answer.isCritical ? ` - ${t("CRITICAL")}` : ""}`, {
-      size: 8.7,
-      leading: 12,
+      size: 14,
+      leading: 20,
       bold: true,
       tone: answer.isCritical && answer.points === 0 ? "warning" : "default",
       gapAfter: 1,
@@ -309,14 +341,14 @@ function buildReportLines(detail: SubmissionDetail, locale: AppLocale) {
 
   heading(t("Use limitation"));
   addWrapped(rows, detail.analysis.limitation, {
-    size: 9.5,
-    leading: 13,
+    size: 14,
+    leading: 20,
     tone: "warning",
     gapAfter: 4,
   }, locale);
   addWrapped(rows, t("This is a written-assessment aid, not a final hiring decision or legal advice. Apply consistent, job-related human review and reasonable-accommodation procedures."), {
-    size: 8.5,
-    leading: 12,
+    size: 14,
+    leading: 20,
     tone: "muted",
   }, locale);
 
@@ -345,12 +377,12 @@ function canvasColor(tone: ReportLine["tone"]) {
 
 function paginate(rows: ReportLine[]) {
   const pages: ReportLine[][] = [[]];
-  let y = 742;
+  let y = 714;
   for (const row of rows) {
     const required = row.leading + (row.gapAfter || 0);
-    if (y - required < 52 && pages[pages.length - 1].length) {
+    if (y - required < 58 && pages[pages.length - 1].length) {
       pages.push([]);
-      y = 742;
+      y = 714;
     }
     pages[pages.length - 1].push(row);
     y -= required;
@@ -358,29 +390,64 @@ function paginate(rows: ReportLine[]) {
   return pages;
 }
 
+function isSectionHeading(row: ReportLine) {
+  return Boolean(row.bold && row.tone === "accent" && row.size >= 16);
+}
+
+function vectorSurface(row: ReportLine) {
+  if (isSectionHeading(row)) return "0.03 0.42 0.50 rg";
+  switch (row.tone) {
+    case "success": return "0.91 0.98 0.94 rg";
+    case "warning": return "1 0.95 0.91 rg";
+    case "accent": return "0.91 0.97 0.98 rg";
+    case "muted": return "0.95 0.96 0.97 rg";
+    default: return "1 1 1 rg";
+  }
+}
+
+function canvasSurface(row: ReportLine) {
+  if (isSectionHeading(row)) return "#087080";
+  switch (row.tone) {
+    case "success": return "#e8f8ee";
+    case "warning": return "#fff1e8";
+    case "accent": return "#e8f7fa";
+    case "muted": return "#f1f4f6";
+    default: return "#ffffff";
+  }
+}
+
 function pageStream(page: ReportLine[], pageNumber: number, totalPages: number, candidate: string, locale: AppLocale) {
   const bodyFont = isCjkLocale(locale) ? "F3" : "F1";
   const boldFont = isCjkLocale(locale) ? "F3" : "F2";
   const commands: string[] = [
-    "0.03 0.12 0.18 rg",
-    `BT /${boldFont} 8 Tf 50 765 Td ${pdfValue("FRED HIRING SYSTEM", locale)} Tj ET`,
-    "0.75 0.82 0.84 RG 0.5 w 50 756 m 562 756 l S",
+    "0.96 0.97 0.98 rg 0 0 612 792 re f",
+    "0.03 0.12 0.18 rg 0 736 612 56 re f",
+    "0.26 0.88 0.92 rg 0 736 612 4 re f",
+    "1 1 1 rg",
+    `BT /${boldFont} 11 Tf 50 758 Td ${pdfValue("FRED HIRING SYSTEM", locale)} Tj ET`,
+    "0.72 0.86 0.89 rg",
+    `BT /${bodyFont} 8 Tf 445 758 Td ${pdfValue(translate(locale, "Confidential report"), locale)} Tj ET`,
   ];
-  let y = 742;
+  let y = 714;
   page.forEach((row) => {
     if (row.text) {
+      const heading = isSectionHeading(row);
+      const rectangleY = y - row.leading + 2;
+      const rectangleHeight = row.leading + 7;
       commands.push(
-        colorCommand(row.tone),
-        `BT /${row.bold ? boldFont : bodyFont} ${row.size} Tf 1 0 0 1 ${50 + (row.indent || 0)} ${y} Tm ${pdfValue(row.text, locale)} Tj ET`,
+        vectorSurface(row),
+        `44 ${rectangleY} 524 ${rectangleHeight} re f`,
+        heading ? "1 1 1 rg" : colorCommand(row.tone),
+        `BT /${row.bold ? boldFont : bodyFont} ${row.size} Tf 1 0 0 1 ${56 + (row.indent || 0)} ${y} Tm ${pdfValue(row.text, locale)} Tj ET`,
       );
     }
     y -= row.leading + (row.gapAfter || 0);
   });
   commands.push(
-    "0.75 0.82 0.84 RG 0.5 w 50 40 m 562 40 l S",
-    "0.34 0.39 0.43 rg",
-    `BT /${bodyFont} 7.5 Tf 50 27 Td ${pdfValue(`${translate(locale, "Confidential")} - ${candidate}`, locale)} Tj ET`,
-    `BT /${bodyFont} 7.5 Tf 500 27 Td ${pdfValue(`${pageNumber} / ${totalPages}`, locale)} Tj ET`,
+    "0.03 0.12 0.18 rg 0 0 612 44 re f",
+    "0.78 0.86 0.88 rg",
+    `BT /${bodyFont} 9 Tf 50 18 Td ${pdfValue(`${translate(locale, "Confidential")} - ${candidate}`, locale)} Tj ET`,
+    `BT /${boldFont} 9 Tf 520 18 Td ${pdfValue(`${pageNumber} / ${totalPages}`, locale)} Tj ET`,
   );
   return `${commands.join("\n")}\n`;
 }
@@ -441,7 +508,7 @@ function base64Bytes(value: string) {
   return bytes;
 }
 
-function createRasterCjkReportPdf(detail: SubmissionDetail, locale: AppLocale) {
+function createRasterCandidateReportPdf(detail: SubmissionDetail, locale: AppLocale) {
   const pages = paginate(buildReportLines(detail, locale));
   const scale = 2;
   const canvas = document.createElement("canvas");
@@ -452,39 +519,43 @@ function createRasterCjkReportPdf(detail: SubmissionDetail, locale: AppLocale) {
 
   const pageImages = pages.map((page, pageIndex) => {
     context.setTransform(scale, 0, 0, scale, 0, 0);
-    context.fillStyle = "#ffffff";
+    context.fillStyle = "#f4f7f8";
     context.fillRect(0, 0, 612, 792);
     context.textBaseline = "alphabetic";
     context.fillStyle = "#071f2f";
-    context.font = "700 8px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif";
-    context.fillText("FRED HIRING SYSTEM", 50, 765);
-    context.strokeStyle = "#bfcfd6";
-    context.lineWidth = 0.5;
-    context.beginPath();
-    context.moveTo(50, 756);
-    context.lineTo(562, 756);
-    context.stroke();
+    context.fillRect(0, 0, 612, 56);
+    context.fillStyle = "#42e1ea";
+    context.fillRect(0, 52, 612, 4);
+    context.fillStyle = "#ffffff";
+    context.font = "700 11px Arial, 'Microsoft YaHei', 'PingFang SC', sans-serif";
+    context.fillText("FRED HIRING SYSTEM", 50, 34);
+    context.fillStyle = "#bfd8dd";
+    context.font = "400 8px Arial, 'Microsoft YaHei', 'PingFang SC', sans-serif";
+    context.textAlign = "right";
+    context.fillText(translate(locale, "Confidential report"), 562, 34);
+    context.textAlign = "left";
 
-    let y = 742;
+    let y = 78;
     for (const row of page) {
       if (row.text) {
-        context.fillStyle = canvasColor(row.tone);
-        context.font = `${row.bold ? 700 : 400} ${row.size}px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif`;
-        context.fillText(row.text, 50 + (row.indent || 0), y);
+        const heading = isSectionHeading(row);
+        context.fillStyle = canvasSurface(row);
+        context.fillRect(44, y - row.size - 5, 524, row.leading + 7);
+        context.fillStyle = heading ? "#ffffff" : canvasColor(row.tone);
+        context.font = `${row.bold ? 700 : 400} ${row.size}px Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif`;
+        context.fillText(row.text, 56 + (row.indent || 0), y);
       }
-      y -= row.leading + (row.gapAfter || 0);
+      y += row.leading + (row.gapAfter || 0);
     }
 
-    context.strokeStyle = "#bfcfd6";
-    context.beginPath();
-    context.moveTo(50, 40);
-    context.lineTo(562, 40);
-    context.stroke();
-    context.fillStyle = "#57646e";
-    context.font = "400 7.5px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif";
-    context.fillText(`${translate(locale, "Confidential")} - ${detail.candidateName}`, 50, 27);
+    context.fillStyle = "#071f2f";
+    context.fillRect(0, 748, 612, 44);
+    context.fillStyle = "#c7dade";
+    context.font = "400 9px Arial, 'Microsoft YaHei', 'PingFang SC', sans-serif";
+    context.fillText(`${translate(locale, "Confidential")} - ${detail.candidateName}`, 50, 774);
     context.textAlign = "right";
-    context.fillText(`${pageIndex + 1} / ${pages.length}`, 562, 27);
+    context.font = "700 9px Arial, 'Microsoft YaHei', 'PingFang SC', sans-serif";
+    context.fillText(`${pageIndex + 1} / ${pages.length}`, 562, 774);
     context.textAlign = "left";
 
     return base64Bytes(canvas.toDataURL("image/jpeg", 0.9).split(",", 2)[1]);
@@ -536,8 +607,8 @@ function createRasterCjkReportPdf(detail: SubmissionDetail, locale: AppLocale) {
 }
 
 export function createCandidateReportPdf(detail: SubmissionDetail, locale: AppLocale = "en") {
-  if (isCjkLocale(locale) && typeof document !== "undefined" && typeof window !== "undefined") {
-    return createRasterCjkReportPdf(detail, locale);
+  if (typeof document !== "undefined" && typeof window !== "undefined") {
+    return createRasterCandidateReportPdf(detail, locale);
   }
   return createVectorCandidateReportPdf(detail, locale);
 }

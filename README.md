@@ -4,16 +4,17 @@ A mobile-friendly restaurant hiring assessment. The public candidate flow requir
 
 ## Assessment design
 
-- 75 questions per candidate: 30 job-behavior questions plus 45 technical questions
-- 150 job-behavior forms covering work style, communication, and customer problem solving; the system selects a balanced random set of 30
+- 75 questions per candidate: 30 non-clinical work-psychology questions plus 45 technical questions
+- 150 work-psychology forms covering integrity, conscientiousness, teamwork, service orientation, emotional regulation, and adaptability; the system selects five questions per trait
 - 1,000 technical forms; the system selects 45 using the chosen restaurant concept, job family, position, and experience level
 - 220 restaurant concepts, from service-model categories through American, steak/BBQ, seafood, Japanese, Chinese/Taiwanese, Korean, and Southeast Asian concepts
-- 12 job families and 113 restaurant positions
+- 12 alphabetized job families and 113 restaurant positions; the position selector shows the complete alphabetized list for the chosen family and its item count
 - Candidate path: Restaurant Type → Job Family → Position → Experience Level → Assessment
 - Session-seeded selection keeps the same candidate's question set stable through scoring while rotating forms between candidate sessions
-- Weighted result: technical 60%, work style 15%, communication 12.5%, problem solving 12.5%
+- Weighted result: technical 60% and work psychology 40% (integrity/reliability 15%, teamwork/service 12.5%, emotional control/adaptability 12.5%)
 - Written passing standard: 75% overall, every section minimum, and no zero-point response on a designated critical item
-- Manager reports include strengths, weaknesses, opportunities, threats, a recommendation band, and an estimated 1–90 day development plan derived from scored job-related gaps
+- Manager reports include a six-trait psychology profile, strengths, weaknesses, opportunities, threats, a recommendation band, and an estimated 1–90 day development plan derived from scored job-related gaps
+- Downloadable reports use a card-based color layout, 14-point Arial text, safe page breaks, detailed manager follow-up, and a complete 75-answer appendix
 
 This is a job-related situational assessment, not a clinical psychological diagnosis. The written result is designed to support a consistent manager review and structured interview, not replace human judgment.
 Development timelines are planning estimates, not guarantees, and must be adjusted from observed job performance without using protected characteristics.

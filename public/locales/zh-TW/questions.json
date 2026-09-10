@@ -1,6 +1,6 @@
 {
   "language": "zh-TW",
-  "testVersion": "2026.09.4",
+  "testVersion": "2026.09.5",
   "questions": {
     "AM01": {
       "prompt": "班前會最重要的目的是什麼？",
