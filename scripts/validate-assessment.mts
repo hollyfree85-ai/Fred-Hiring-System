@@ -86,6 +86,133 @@ if (expectedQuestions.size !== 480) {
 }
 
 const localizedLocales = ["id", "es", "zh-CN", "zh-TW"] as const;
+const localizationRedFlags: Record<(typeof localizedLocales)[number], string[]> = {
+  id: [
+    "pelari",
+    "pameran",
+    "tuan rumah",
+    "fondant",
+    "mandi es",
+    "pencairan server",
+    "memutar walk-in",
+    "juru masak antrean",
+    "rasa suka",
+    "panggung batch",
+    "pegawai bagian makanan",
+    "integritas paket",
+    "pengelolaan layar dingin",
+    "langkah mematikan",
+    "butiran dan struktur otot",
+    "prosedur layanan atau penguncian",
+    "Roti gulung",
+    "roti gulung",
+    "pemeriksaan terpisah",
+    "baru baru",
+    "resep standar restoran standar",
+    "mengembalikannya ke kepatuhan",
+  ],
+  es: [
+    "huésped",
+    "corredor",
+    "servidor",
+    "panecillo",
+    "entrada sin cita previa",
+    "apósito",
+    "dla comanda",
+    "un comanda",
+    "las platos",
+    "embargar el trabajo",
+    "billetes de varias estaciones",
+    "visualización en frío",
+    "latas de sonido",
+    "producción de pruebas",
+    "paso de eliminación",
+    "medidas caseras exactas",
+    "pestaña",
+    "varios comandas",
+    "todos los comandas",
+    "dispare en secuencia",
+    "segmentación crítica",
+    "producción de circuito cerrado",
+    "siguiente tiempo",
+    "preparar previamente el plato",
+    "producción de stock",
+    "descomponer un pescado",
+  ],
+  "zh-CN": [
+    "最合适烈",
+    "重拍",
+    "售票时间",
+    "消费者代表",
+    "不安全的复杂性",
+    "罚单",
+    "世博会",
+    "服务器",
+    "机票",
+    "车牌",
+    "一个大型一组",
+    "升级/文件",
+    "电镀",
+    "音量协调",
+    "住宿升级",
+    "冷显示管理",
+    "熟面包卷",
+    "多种清酒",
+    "通行证",
+    "展览说明",
+    "室内测量",
+    "杀灭步骤",
+    "肌肉颗粒",
+    "升级",
+    "选项卡",
+    "一组顾顾客",
+    "正确的回答",
+    "将表格标记为",
+    "忽略该表",
+    "家庭食谱",
+    "步入室",
+    "排队厨师",
+    "鱼边是在",
+    "什么控制？",
+  ],
+  "zh-TW": [
+    "最合適烈",
+    "重拍",
+    "售票時間",
+    "消費者代表",
+    "不安全的複雜性",
+    "罰單",
+    "世博會",
+    "伺服器",
+    "機票",
+    "車牌",
+    "一個大型一組",
+    "升級/文件",
+    "電鍍",
+    "音量協調",
+    "住宿升級",
+    "冷顯示管理",
+    "熟麵包捲",
+    "多種清酒",
+    "通行證",
+    "展覽說明",
+    "室內測量",
+    "殺滅步驟",
+    "肌肉顆粒",
+    "升級",
+    "選項卡",
+    "一組顧顧客",
+    "正確的答案",
+    "將表格標記為",
+    "忽略該表",
+    "家庭食譜",
+    "步入室",
+    "排隊廚師",
+    "魚邊是在",
+    "什麼控制？",
+  ],
+};
+
 for (const locale of localizedLocales) {
   const catalog = JSON.parse(
     await readFile(new URL(`../public/locales/${locale}/questions.json`, import.meta.url), "utf8"),
@@ -108,6 +235,19 @@ for (const locale of localizedLocales) {
       throw new Error(`${locale}/${questionId}: empty localized option.`);
     }
   }
+  for (const questionId of ["CK05", "CP05", "SC05", "SP05"]) {
+    const temperatureAnswer = catalog.questions[questionId]?.options[`${questionId}-a`] || "";
+    if (!temperatureAnswer.includes("41°F") || !temperatureAnswer.includes("5°C")) {
+      throw new Error(`${locale}/${questionId}: cold-holding threshold must remain 41°F (5°C).`);
+    }
+  }
+  const serializedCatalog = JSON.stringify(catalog).toLocaleLowerCase(locale);
+  const redFlags = localizationRedFlags[locale].filter((term) =>
+    serializedCatalog.includes(term.toLocaleLowerCase(locale)),
+  );
+  if (redFlags.length > 0) {
+    throw new Error(`${locale}: unnatural literal translation detected: ${redFlags.join(", ")}`);
+  }
   console.log(`${locale}: 480 localized questions · version ${TEST_VERSION} verified`);
 }
 
@@ -116,6 +256,13 @@ const uiTranslations = JSON.parse(
 ) as Record<(typeof localizedLocales)[number], Record<string, string>>;
 const uiSources = Object.keys(uiTranslations.id || {}).sort();
 if (uiSources.length < 450) throw new Error(`Expected at least 450 UI/report translations, received ${uiSources.length}.`);
+
+const uiLocalizationRedFlags: Record<(typeof localizedLocales)[number], string[]> = {
+  id: ["yang yang"],
+  es: ["al gerente al gerente"],
+  "zh-CN": ["称称"],
+  "zh-TW": ["稱稱"],
+};
 
 for (const locale of localizedLocales) {
   const catalog = uiTranslations[locale];
@@ -131,6 +278,13 @@ for (const locale of localizedLocales) {
     if (expected.join("|") !== actual.join("|")) {
       throw new Error(`${locale}: placeholder mismatch for ${source}`);
     }
+  }
+  const serializedUi = JSON.stringify(catalog).toLocaleLowerCase(locale);
+  const uiRedFlags = uiLocalizationRedFlags[locale].filter((term) =>
+    serializedUi.includes(term.toLocaleLowerCase(locale)),
+  );
+  if (uiRedFlags.length > 0) {
+    throw new Error(`${locale}: unnatural UI translation detected: ${uiRedFlags.join(", ")}`);
   }
   console.log(`${locale}: ${keys.length} UI/report translations · placeholders verified`);
 }

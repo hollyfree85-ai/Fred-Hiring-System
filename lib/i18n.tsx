@@ -9,8 +9,8 @@ export type AppLocale = (typeof appLocales)[number];
 export const localeOptions: Array<{ value: AppLocale; shortLabel: string; label: string }> = [
   { value: "en", shortLabel: "EN", label: "English" },
   { value: "id", shortLabel: "ID", label: "Bahasa Indonesia" },
-  { value: "zh-CN", shortLabel: "简体", label: "中文简体" },
-  { value: "zh-TW", shortLabel: "繁體", label: "中文繁體" },
+  { value: "zh-CN", shortLabel: "简体", label: "简体中文" },
+  { value: "zh-TW", shortLabel: "繁體", label: "繁體中文" },
   { value: "es", shortLabel: "ES", label: "Español" },
 ];
 
