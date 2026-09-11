@@ -14,7 +14,7 @@ A mobile-friendly restaurant hiring assessment. The public candidate flow requir
 - Weighted result: technical 60% and work psychology 40% (integrity/reliability 15%, teamwork/service 12.5%, emotional control/adaptability 12.5%)
 - Written passing standard: 75% overall, every section minimum, and no zero-point response on a designated critical item
 - Manager reports include a six-trait psychology profile, strengths, weaknesses, opportunities, threats, a recommendation band, and an estimated 1–90 day development plan derived from scored job-related gaps
-- Downloadable reports are fixed to three focused pages with a card-based color layout and 14-point Arial body text: personality, requested-position fit, and SWOT/development with alternative roles when needed
+- Downloadable reports use three clearly separated chapters with a card-based color layout and 14-point Arial body text: personality, requested-position fit, and SWOT/development with alternative roles when needed. The PDF adds pages automatically so every analysis item, manager follow-up, evidence item, and coaching action remains complete instead of being truncated.
 
 This is a job-related situational assessment, not a clinical psychological diagnosis. The written result is designed to support a consistent manager review and structured interview, not replace human judgment.
 Development timelines are planning estimates, not guarantees, and must be adjusted from observed job performance without using protected characteristics.

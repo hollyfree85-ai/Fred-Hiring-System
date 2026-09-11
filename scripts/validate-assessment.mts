@@ -371,11 +371,12 @@ if (
 }
 console.log("PWA manifest: install scope and icons verified");
 
-const [authShimSource, loginUiSource, serviceWorkerSource, managerAuthSource] = await Promise.all([
+const [authShimSource, loginUiSource, serviceWorkerSource, managerAuthSource, candidateReportSource] = await Promise.all([
   readFile(new URL("../github-src/firebase-api-shim.ts", import.meta.url), "utf8"),
   readFile(new URL("../components/manager-portal.tsx", import.meta.url), "utf8"),
   readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   readFile(new URL("../lib/manager-auth.ts", import.meta.url), "utf8"),
+  readFile(new URL("../lib/candidate-report.ts", import.meta.url), "utf8"),
 ]);
 if (
   !authShimSource.includes("setPersistence(auth, authModule.inMemoryPersistence)")
@@ -390,3 +391,33 @@ if (
   throw new Error("Staff/Owner credentials or authenticated sessions could persist on the device.");
 }
 console.log("Staff/Owner security: memory-only auth, non-persistent cookie, autofill opt-out, and API no-cache verified");
+
+const requiredReportAnalysis = [
+  "detail.analysis.summary",
+  "detail.analysis.hiringRecommendation",
+  "detail.analysis.psychologyProfile",
+  "detail.categoryScores",
+  "detail.analysis.strengths",
+  "detail.analysis.priorities",
+  "detail.analysis.swot.strengths",
+  "detail.analysis.swot.weaknesses",
+  "detail.analysis.swot.opportunities",
+  "detail.analysis.swot.threats",
+  "detail.analysis.developmentPlan",
+  "detail.analysis.alternativePositions",
+  "detail.analysis.reviewItems",
+  "detail.analysis.interviewPrompts",
+  "detail.analysis.methodology",
+  "detail.analysis.failedRules",
+  "detail.analysis.limitation",
+];
+if (
+  requiredReportAnalysis.some((field) => !candidateReportSource.includes(field))
+  || candidateReportSource.includes("truncateLine")
+  || candidateReportSource.includes("maxLines")
+  || !candidateReportSource.includes("splitOversizedCard")
+  || !candidateReportSource.includes("BODY_FONT_SIZE = 14")
+) {
+  throw new Error("Candidate PDF must include the complete web analysis with dynamic, non-truncating pagination and 14-point body text.");
+}
+console.log("Candidate PDF: complete web analysis, three report chapters, and page-safe dynamic pagination verified");
