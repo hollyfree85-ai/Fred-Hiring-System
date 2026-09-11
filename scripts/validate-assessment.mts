@@ -371,10 +371,12 @@ if (
 }
 console.log("PWA manifest: install scope and icons verified");
 
-const [authShimSource, loginUiSource, serviceWorkerSource, managerAuthSource, candidateReportSource] = await Promise.all([
+const [authShimSource, loginUiSource, participantPortalSource, serviceWorkerSource, serviceWorkerRegistrationSource, managerAuthSource, candidateReportSource] = await Promise.all([
   readFile(new URL("../github-src/firebase-api-shim.ts", import.meta.url), "utf8"),
   readFile(new URL("../components/manager-portal.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../components/participant-portal.tsx", import.meta.url), "utf8"),
   readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+  readFile(new URL("../github-src/main.tsx", import.meta.url), "utf8"),
   readFile(new URL("../lib/manager-auth.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/candidate-report.ts", import.meta.url), "utf8"),
 ]);
@@ -391,6 +393,28 @@ if (
   throw new Error("Staff/Owner credentials or authenticated sessions could persist on the device.");
 }
 console.log("Staff/Owner security: memory-only auth, non-persistent cookie, autofill opt-out, and API no-cache verified");
+
+if (
+  !serviceWorkerSource.includes('fred-hiring-system-v14-restaurant-picker')
+  || !serviceWorkerSource.includes('new Request(url, { cache: "reload" })')
+  || !serviceWorkerSource.includes('fetch(request, { cache: "no-store" })')
+  || !serviceWorkerRegistrationSource.includes('sw.js?v=14-restaurant-picker')
+  || !serviceWorkerRegistrationSource.includes('updateViaCache: "none"')
+  || !serviceWorkerRegistrationSource.includes('registration.update()')
+) {
+  throw new Error("The PWA must actively replace stale cached report code after deployment.");
+}
+console.log("PWA updates: cache-busted service worker and network revalidation verified");
+
+if (
+  !participantPortalSource.includes("sortedRestaurantGroups")
+  || !participantPortalSource.includes("Search restaurant type or category...")
+  || !participantPortalSource.includes("CommandGroup")
+  || !participantPortalSource.includes("collator.compare(left.label, right.label)")
+) {
+  throw new Error("Restaurant types must be searchable and alphabetized within alphabetized categories.");
+}
+console.log("Restaurant picker: searchable alphabetical categories and concepts verified");
 
 const requiredReportAnalysis = [
   "detail.analysis.summary",
@@ -417,6 +441,7 @@ if (
   || candidateReportSource.includes("maxLines")
   || !candidateReportSource.includes("splitOversizedCard")
   || !candidateReportSource.includes("BODY_FONT_SIZE = 14")
+  || !candidateReportSource.includes("-complete.pdf")
 ) {
   throw new Error("Candidate PDF must include the complete web analysis with dynamic, non-truncating pagination and 14-point body text.");
 }

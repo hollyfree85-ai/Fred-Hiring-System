@@ -729,7 +729,7 @@ export function candidateReportFilename(detail: SubmissionDetail) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "") || "candidate";
-  return `fred-hiring-assessment-${safeName}.pdf`;
+  return `fred-hiring-assessment-${safeName}-complete.pdf`;
 }
 
 function createVectorCandidateReportPdf(detail: SubmissionDetail, locale: AppLocale) {

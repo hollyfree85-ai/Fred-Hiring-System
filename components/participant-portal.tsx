@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock3,
+  ChevronsUpDown,
   Loader2,
   Phone,
   ShieldCheck,
@@ -19,6 +20,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -118,6 +127,7 @@ export function ParticipantPortal() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [restaurantPickerOpen, setRestaurantPickerOpen] = useState(false);
 
   const answeredCount = Object.keys(answers).length;
   const currentQuestion = questions[currentIndex];
@@ -133,6 +143,18 @@ export function ParticipantPortal() {
   const sortedPositions = useMemo(
     () => [...selectedFamily.positions].sort((left, right) => collator.compare(t(left.label), t(right.label))),
     [collator, selectedFamily, t],
+  );
+  const selectedRestaurantConcept = restaurantConcepts.find((concept) => concept.id === identity.restaurantConcept);
+  const sortedRestaurantGroups = useMemo(
+    () => [...restaurantGroups]
+      .map((group) => ({
+        ...group,
+        concepts: restaurantConcepts
+          .filter((concept) => concept.group === group.id)
+          .sort((left, right) => collator.compare(left.label, right.label)),
+      }))
+      .sort((left, right) => collator.compare(t(left.label), t(right.label))),
+    [collator, t],
   );
 
   useEffect(() => {
@@ -362,21 +384,54 @@ export function ParticipantPortal() {
               <div className="relative"><Phone className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input id="candidate-phone" autoComplete="tel" inputMode="tel" value={identity.phone} onChange={(event) => setIdentity((current) => ({ ...current, phone: event.target.value }))} className="h-12 rounded-xl pl-10" placeholder="(256) 555-0123" /></div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="restaurant-concept">{t("Restaurant type")}</Label>
-              <select
+              <Label id="restaurant-concept-label" htmlFor="restaurant-concept">{t("Restaurant type")}</Label>
+              <Button
+                type="button"
+                variant="outline"
                 id="restaurant-concept"
-                value={identity.restaurantConcept}
-                onChange={(event) => setIdentity((current) => ({ ...current, restaurantConcept: event.target.value as RestaurantConceptId }))}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-xs outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                role="combobox"
+                aria-labelledby="restaurant-concept-label restaurant-concept"
+                aria-expanded={restaurantPickerOpen}
+                onClick={() => setRestaurantPickerOpen(true)}
+                className="h-12 w-full justify-between rounded-xl border-slate-200 bg-white px-4 text-left text-sm font-normal text-slate-900 shadow-xs hover:bg-white focus-visible:border-cyan-500 focus-visible:ring-cyan-100"
               >
-                {restaurantGroups.map((group) => (
-                  <optgroup key={group.id} label={t(group.label)}>
-                    {restaurantConcepts.filter((concept) => concept.group === group.id).map((concept) => (
-                      <option key={concept.id} value={concept.id}>{concept.label}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+                <span className="truncate">{selectedRestaurantConcept?.label || t("Choose a restaurant type")}</span>
+                <ChevronsUpDown className="size-4 shrink-0 text-slate-400" />
+              </Button>
+              <CommandDialog
+                open={restaurantPickerOpen}
+                onOpenChange={setRestaurantPickerOpen}
+                title={t("Choose a restaurant type")}
+                description={t("Search by restaurant type or browse the alphabetical categories.")}
+                className="max-h-[min(88vh,720px)] w-[calc(100%-1.5rem)] max-w-2xl rounded-2xl"
+              >
+                <div className="border-b border-slate-100 px-4 py-4 pr-12">
+                  <p className="text-base font-black text-slate-950">{t("Choose a restaurant type")}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{t("Search by restaurant type or browse the alphabetical categories.")}</p>
+                </div>
+                <CommandInput placeholder={t("Search restaurant type or category...")} className="text-base sm:text-sm" />
+                <CommandList className="max-h-[min(62vh,520px)] px-1 pb-2">
+                  <CommandEmpty>{t("No restaurant type found.")}</CommandEmpty>
+                  {sortedRestaurantGroups.map((group) => (
+                    <CommandGroup key={group.id} heading={t(group.label)} className="[&_[cmdk-group-heading]]:sticky [&_[cmdk-group-heading]]:top-0 [&_[cmdk-group-heading]]:z-10 [&_[cmdk-group-heading]]:bg-white [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:text-cyan-800">
+                      {group.concepts.map((concept) => (
+                        <CommandItem
+                          key={concept.id}
+                          value={`${t(group.label)} ${concept.label}`}
+                          onSelect={() => {
+                            setIdentity((current) => ({ ...current, restaurantConcept: concept.id as RestaurantConceptId }));
+                            setRestaurantPickerOpen(false);
+                          }}
+                          className="min-h-11 rounded-lg px-3 py-2.5 text-sm"
+                        >
+                          <Check className={`size-4 ${identity.restaurantConcept === concept.id ? "opacity-100 text-cyan-700" : "opacity-0"}`} />
+                          <span>{concept.label}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  ))}
+                </CommandList>
+              </CommandDialog>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

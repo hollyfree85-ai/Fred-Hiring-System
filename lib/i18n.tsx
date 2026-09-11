@@ -22,6 +22,10 @@ const translations = generatedTranslations as TranslationMap;
 const supplementalTranslations: TranslationMap = {
   id: {
     "Restaurant type": "Jenis restoran",
+    "Choose a restaurant type": "Pilih jenis restoran",
+    "Search by restaurant type or browse the alphabetical categories.": "Cari jenis restoran atau telusuri kategori yang sudah diurutkan secara alfabetis.",
+    "Search restaurant type or category...": "Cari jenis atau kategori restoran...",
+    "No restaurant type found.": "Jenis restoran tidak ditemukan.",
     "Job family": "Kelompok posisi",
     "Experience level": "Tingkat pengalaman",
     "Assessment path:": "Jalur asesmen:",
@@ -114,6 +118,10 @@ const supplementalTranslations: TranslationMap = {
   },
   es: {
     "Restaurant type": "Tipo de restaurante",
+    "Choose a restaurant type": "Elige un tipo de restaurante",
+    "Search by restaurant type or browse the alphabetical categories.": "Busca por tipo de restaurante o explora las categorías en orden alfabético.",
+    "Search restaurant type or category...": "Buscar tipo o categoría de restaurante...",
+    "No restaurant type found.": "No se encontró ningún tipo de restaurante.",
     "Job family": "Área de trabajo",
     "Experience level": "Nivel de experiencia",
     "Assessment path:": "Ruta de la evaluación:",
@@ -206,6 +214,7 @@ const supplementalTranslations: TranslationMap = {
   },
   "zh-CN": {
     "Restaurant type": "餐厅类型", "Job family": "岗位类别", "Experience level": "经验水平", "Assessment path:": "测评路径：",
+    "Choose a restaurant type": "选择餐厅类型", "Search by restaurant type or browse the alphabetical categories.": "搜索餐厅类型，或浏览按字母顺序排列的类别。", "Search restaurant type or category...": "搜索餐厅类型或类别……", "No restaurant type found.": "未找到餐厅类型。",
     "Choose a restaurant type, job family, position, and experience level.": "请选择餐厅类型、岗位类别、应聘职位和经验水平。",
     "Choose a position from the selected job family.": "请选择该岗位类别下的职位。",
     "Service model & price point": "服务模式与价格定位", "American restaurant concepts": "美式餐厅类型", "Steak, barbecue & meat": "牛排、烧烤与肉类餐厅",
@@ -242,6 +251,7 @@ const supplementalTranslations: TranslationMap = {
   },
   "zh-TW": {
     "Restaurant type": "餐廳類型", "Job family": "職位類別", "Experience level": "經驗程度", "Assessment path:": "測評路徑：",
+    "Choose a restaurant type": "選擇餐廳類型", "Search by restaurant type or browse the alphabetical categories.": "搜尋餐廳類型，或瀏覽按字母順序排列的類別。", "Search restaurant type or category...": "搜尋餐廳類型或類別……", "No restaurant type found.": "找不到餐廳類型。",
     "Choose a restaurant type, job family, position, and experience level.": "請選擇餐廳類型、職位類別、應徵職位和經驗程度。",
     "Choose a position from the selected job family.": "請選擇該職位類別下的職位。",
     "Service model & price point": "服務模式與價格定位", "American restaurant concepts": "美式餐廳類型", "Steak, barbecue & meat": "牛排、燒烤與肉類餐廳",

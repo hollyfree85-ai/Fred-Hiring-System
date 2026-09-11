@@ -30,10 +30,14 @@ void start();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    const serviceWorkerUrl = new URL("sw.js", document.baseURI);
+    const serviceWorkerUrl = new URL("sw.js?v=14-restaurant-picker", document.baseURI);
     const scopeUrl = new URL(".", document.baseURI);
-    void navigator.serviceWorker.register(serviceWorkerUrl, {
-      scope: scopeUrl.pathname,
-    });
+    void navigator.serviceWorker
+      .register(serviceWorkerUrl, {
+        scope: scopeUrl.pathname,
+        updateViaCache: "none",
+      })
+      .then((registration) => registration.update())
+      .catch(() => undefined);
   });
 }

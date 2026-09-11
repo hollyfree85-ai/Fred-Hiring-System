@@ -1,4 +1,4 @@
-const CACHE_NAME = "fred-hiring-system-v12";
+const CACHE_NAME = "fred-hiring-system-v14-restaurant-picker";
 const scopeUrl = new URL(self.registration.scope);
 const asset = (path) => new URL(path, scopeUrl).toString();
 const APP_SHELL = [
@@ -11,7 +11,11 @@ const APP_SHELL = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL.map((url) => new Request(url, { cache: "reload" }))))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -35,7 +39,7 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: "no-store" })
         .then((response) => {
           const copy = response.clone();
           void caches.open(CACHE_NAME).then((cache) => cache.put(asset("./"), copy));
@@ -47,15 +51,14 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request).then((response) => {
+    fetch(request, { cache: "no-store" })
+      .then((response) => {
         if (response.ok) {
           const copy = response.clone();
           void caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
         }
         return response;
-      });
-      return cached || network;
-    }),
+      })
+      .catch(() => caches.match(request)),
   );
 });
